@@ -1,0 +1,8 @@
+{
+  "name": "PearlPix",
+  "description": "Stream and watch movies and TV series translated by top Ugandan VJs with PearlPix.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
