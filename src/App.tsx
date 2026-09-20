@@ -13,10 +13,12 @@ import { SearchTab } from './components/SearchTab';
 import { CategoriesTab } from './components/CategoriesTab';
 import { MediaCatalogView } from './components/MediaCatalogView';
 import { HomeFooter } from './components/HomeFooter';
-import { AuthModal } from './components/AuthModal';
-import { SubscriptionModal } from './components/SubscriptionModal';
-import { ProfileModal } from './components/ProfileModal';
-import { ContactModal } from './components/ContactModal';
+import { AuthPage } from './pages/AuthPage';
+import { ProfilePage } from './pages/ProfilePage';
+import { SubscriptionPage } from './pages/SubscriptionPage';
+import { ContactPage } from './pages/ContactPage';
+import { AboutPage } from './pages/AboutPage';
+import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
 import { Film, Bookmark, Play } from 'lucide-react';
 
 export function App() {
@@ -29,15 +31,15 @@ export function App() {
   const [user, setUser] = useState<PearlUser | null>(() => pearlGetSavedUser());
   const [subscription, setSubscription] = useState<PearlSubscription>(() => pearlGetSavedSubscription());
 
-  // Modal dialog states
-  const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
-  const [showSubscriptionModal, setShowSubscriptionModal] = useState<boolean>(false);
-  const [showProfileModal, setShowProfileModal] = useState<boolean>(false);
-  const [showContactModal, setShowContactModal] = useState<boolean>(false);
-  const [contactInitialSubject, setContactInitialSubject] = useState<string>('');
-
-  // Navigation & Category Drilldown state
+  // Navigation state (Page-based routing)
+  // Standard tabs: 'home' | 'movies' | 'series' | 'categories' | 'mylist' | 'search'
+  // Dedicated full pages: 'auth' | 'profile' | 'subscription' | 'contact' | 'about' | 'privacy'
   const [activeTab, setActiveTab] = useState<string>('home');
+  const [previousTab, setPreviousTab] = useState<string>('home');
+  const [authNotice, setAuthNotice] = useState<string | undefined>(undefined);
+  const [contactDefaultTitle, setContactDefaultTitle] = useState<string>('');
+
+  // Category Drilldown state
   const [targetVj, setTargetVj] = useState<string | null>(null);
   const [targetGenre, setTargetGenre] = useState<string | null>(null);
   const [targetCategoryTitle, setTargetCategoryTitle] = useState<string | null>(null);
@@ -215,45 +217,77 @@ export function App() {
     return list;
   }, [savedIds, savedMoviesMap, allMoviesPool, myListFilter]);
 
-  // Auth & Subscription Action Handlers
-  const handleOpenContact = (subject?: string) => {
-    if (subject) {
-      setContactInitialSubject(`Request / Report: ${subject}`);
-    } else {
-      setContactInitialSubject('');
+  // Auth & Subscription Page Navigation Handlers
+  const navigateToPage = (pageTab: string, notice?: string) => {
+    const browseTabs = ['home', 'movies', 'series', 'categories', 'mylist', 'search'];
+    if (browseTabs.includes(activeTab)) {
+      setPreviousTab(activeTab);
     }
-    setShowContactModal(true);
+    setAuthNotice(notice);
+    setActiveTab(pageTab);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleGoBack = () => {
+    setActiveTab(previousTab || 'home');
+    setAuthNotice(undefined);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleOpenContact = (subject?: string) => {
+    setContactDefaultTitle(subject || '');
+    navigateToPage('contact');
   };
 
   const handleLoginSuccess = (newUser: PearlUser) => {
     setUser(newUser);
     const sub = pearlGetSavedSubscription();
     setSubscription(sub);
+    // If not subscribed yet, take user to the subscription activation page
+    if (!sub.isSubscribed) {
+      navigateToPage('subscription');
+    } else {
+      handleGoBack();
+    }
   };
 
   const handleLogout = () => {
     pearlLogout();
     setUser(null);
     setSubscription({ isSubscribed: false });
-    setShowProfileModal(false);
+    setActiveTab('home');
   };
 
   const handleSubscriptionActivated = (newSub: PearlSubscription) => {
     setSubscription(newSub);
     const updatedUser = pearlGetSavedUser();
     if (updatedUser) setUser(updatedUser);
+    handleGoBack();
   };
 
   const handleTabChange = (tab: string) => {
-    if (tab === 'vip') {
-      setShowSubscriptionModal(true);
+    if (tab === 'auth') {
+      navigateToPage('auth');
       return;
     }
     if (tab === 'profile') {
-      if (user) setShowProfileModal(true);
-      else setShowAuthModal(true);
+      if (user) navigateToPage('profile');
+      else navigateToPage('auth');
       return;
     }
+    if (tab === 'subscription' || tab === 'vip') {
+      if (!user) {
+        navigateToPage('auth', 'Please sign in or register to view VIP membership plans.');
+      } else {
+        navigateToPage('subscription');
+      }
+      return;
+    }
+    if (tab === 'contact' || tab === 'about' || tab === 'privacy') {
+      navigateToPage(tab);
+      return;
+    }
+
     setActiveTab(tab);
     if (tab !== 'categories') {
       setTargetVj(null);
@@ -261,6 +295,77 @@ export function App() {
       setTargetCategoryTitle(null);
     }
   };
+
+  // Dedicated full-page views:
+  if (activeTab === 'auth') {
+    return (
+      <AuthPage
+        onBack={handleGoBack}
+        onLoginSuccess={handleLoginSuccess}
+        onNavigateToSubscription={() => navigateToPage('subscription')}
+        noticeMessage={authNotice}
+      />
+    );
+  }
+
+  if (activeTab === 'profile') {
+    return (
+      <ProfilePage
+        onBack={handleGoBack}
+        user={user}
+        subscription={subscription}
+        onNavigateToAuth={() => navigateToPage('auth')}
+        onNavigateToSubscription={() => {
+          if (!user) navigateToPage('auth', 'Please sign in or register to select a VIP membership.');
+          else navigateToPage('subscription');
+        }}
+        onNavigateToContact={() => handleOpenContact()}
+        onNavigateToAbout={() => navigateToPage('about')}
+        onNavigateToPrivacy={() => navigateToPage('privacy')}
+        onLogout={handleLogout}
+      />
+    );
+  }
+
+  if (activeTab === 'subscription') {
+    return (
+      <SubscriptionPage
+        onBack={handleGoBack}
+        user={user}
+        subscription={subscription}
+        onNavigateToAuth={() => navigateToPage('auth')}
+        onSubscriptionActivated={handleSubscriptionActivated}
+      />
+    );
+  }
+
+  if (activeTab === 'contact') {
+    return (
+      <ContactPage
+        onBack={handleGoBack}
+        user={user}
+        defaultMovieTitle={contactDefaultTitle}
+      />
+    );
+  }
+
+  if (activeTab === 'about') {
+    return (
+      <AboutPage
+        onBack={handleGoBack}
+        onNavigateToContact={() => handleOpenContact()}
+      />
+    );
+  }
+
+  if (activeTab === 'privacy') {
+    return (
+      <PrivacyPolicyPage
+        onBack={handleGoBack}
+        onNavigateToContact={() => handleOpenContact()}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#000000] text-white flex flex-col selection:bg-[#E50914] selection:text-white">
@@ -272,9 +377,15 @@ export function App() {
         savedCount={savedIds.size}
         user={user}
         subscription={subscription}
-        onOpenAuth={() => setShowAuthModal(true)}
-        onOpenProfile={() => setShowProfileModal(true)}
-        onOpenSubscription={() => setShowSubscriptionModal(true)}
+        onOpenAuth={() => navigateToPage('auth')}
+        onOpenProfile={() => {
+          if (user) navigateToPage('profile');
+          else navigateToPage('auth');
+        }}
+        onOpenSubscription={() => {
+          if (!user) navigateToPage('auth', 'Please sign in or register to select a VIP membership.');
+          else navigateToPage('subscription');
+        }}
         onOpenContact={() => handleOpenContact()}
       />
 
@@ -502,7 +613,7 @@ export function App() {
             </div>
 
             {savedMovies.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 3xl:grid-cols-8 gap-3 sm:gap-4 md:gap-5">
+              <div className="grid grid-cols-3 gap-2 sm:gap-3.5 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 3xl:grid-cols-8 md:gap-5">
                 {savedMovies.map(movie => (
                   <MovieCard
                     key={movie.id}
@@ -540,10 +651,11 @@ export function App() {
         onTabChange={handleTabChange}
         savedCount={savedIds.size}
         user={user}
-        subscription={subscription}
-        onOpenAuth={() => setShowAuthModal(true)}
-        onOpenProfile={() => setShowProfileModal(true)}
-        onOpenSubscription={() => setShowSubscriptionModal(true)}
+        onOpenAuth={() => navigateToPage('auth')}
+        onOpenProfile={() => {
+          if (user) navigateToPage('profile');
+          else navigateToPage('auth');
+        }}
       />
 
       {/* Full Movie / Series Fullscreen Detail Screen */}
@@ -561,12 +673,15 @@ export function App() {
           onSelectMovie={(m) => setDetailMovie(m)}
           savedIds={savedIds}
           isSubscribed={subscription.isSubscribed}
-          onOpenSubscription={() => setShowSubscriptionModal(true)}
+          onOpenSubscription={() => {
+            if (!user) navigateToPage('auth', 'Please sign in or register to select a VIP membership.');
+            else navigateToPage('subscription');
+          }}
           onOpenContact={(title) => handleOpenContact(title)}
         />
       )}
 
-      {/* High Definition Video Player Modal (With 3-sec subscription checker) */}
+      {/* High Definition Video Player (With 3-sec subscription checker) */}
       {playerState && (
         <PlayerModal
           movie={playerState.movie}
@@ -576,48 +691,16 @@ export function App() {
           onSaveProgress={handleSaveProgress}
           user={user}
           isSubscribed={subscription.isSubscribed}
-          onOpenSubscription={() => setShowSubscriptionModal(true)}
-          onOpenAuth={() => setShowAuthModal(true)}
+          onOpenSubscription={() => {
+            setPlayerState(null);
+            navigateToPage('subscription');
+          }}
+          onOpenAuth={() => {
+            setPlayerState(null);
+            navigateToPage('auth', 'Free users can preview for 3 seconds. Please sign in or register to unlock full streaming.');
+          }}
         />
       )}
-
-      {/* Authentication Modal (Login / Sign Up / Password Recovery) */}
-      <AuthModal
-        isOpen={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
-        onLoginSuccess={handleLoginSuccess}
-        onOpenSubscription={() => setShowSubscriptionModal(true)}
-      />
-
-      {/* VIP Subscription Modal (Uganda Mobile Money MTN & Airtel Polling) */}
-      <SubscriptionModal
-        isOpen={showSubscriptionModal}
-        onClose={() => setShowSubscriptionModal(false)}
-        user={user}
-        subscription={subscription}
-        onOpenAuth={() => setShowAuthModal(true)}
-        onSubscriptionActivated={handleSubscriptionActivated}
-      />
-
-      {/* User Profile & Membership Modal */}
-      <ProfileModal
-        isOpen={showProfileModal}
-        onClose={() => setShowProfileModal(false)}
-        user={user}
-        subscription={subscription}
-        onOpenAuth={() => setShowAuthModal(true)}
-        onOpenSubscription={() => setShowSubscriptionModal(true)}
-        onOpenContact={() => handleOpenContact()}
-        onLogout={handleLogout}
-      />
-
-      {/* Contact, Support & Movie Requests Modal */}
-      <ContactModal
-        isOpen={showContactModal}
-        onClose={() => setShowContactModal(false)}
-        user={user}
-        initialSubject={contactInitialSubject}
-      />
     </div>
   );
 }

@@ -227,18 +227,19 @@ export const SearchTab: React.FC<SearchTabProps> = ({
 
       {/* Grid of Results */}
       {isLoading && results.length === 0 ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 3xl:grid-cols-8 gap-3 sm:gap-4">
-          {Array.from({ length: 16 }).map((_, i) => (
-            <div key={i} className="animate-pulse bg-[#121212] rounded-2xl aspect-[2/3] border border-[#262626]" />
+        <div className="grid grid-cols-3 gap-2 sm:gap-3.5 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 3xl:grid-cols-8">
+          {Array.from({ length: 18 }).map((_, i) => (
+            <div key={i} className="animate-pulse bg-[#121212] rounded-xl aspect-[2/3] border border-[#262626]" />
           ))}
         </div>
       ) : results.length > 0 ? (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 3xl:grid-cols-8 gap-3 sm:gap-4">
+          <div className="grid grid-cols-3 gap-2 sm:gap-3.5 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 3xl:grid-cols-8">
             {results.map((movie) => (
-              <div key={movie.id} className="flex justify-center">
+              <div key={movie.id} className="w-full">
                 <MovieCard
                   movie={movie}
+                  className="w-full"
                   onSelect={onSelectMovie}
                   onPlayQuick={onPlayQuick}
                   isSaved={savedIds.has(movie.id)}

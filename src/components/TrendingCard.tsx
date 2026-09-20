@@ -21,7 +21,7 @@ export const TrendingCard: React.FC<TrendingCardProps> = ({ movie, rank, onClick
   return (
     <div
       onClick={onClick}
-      className="w-[120px] sm:w-[130px] flex-none cursor-pointer group select-none transition-transform duration-200 hover:-translate-y-1"
+      className="w-[100px] sm:w-[125px] md:w-[135px] flex-none cursor-pointer group select-none transition-transform duration-200 hover:-translate-y-1"
     >
       <div className="flex flex-col">
         {/* Poster Container */}

@@ -24,11 +24,11 @@ export const MovieCard: React.FC<MovieCardProps> = ({
       id={`movie-card-${movie.id}`}
       onClick={() => onSelect(movie)}
       className={`group relative cursor-pointer select-none transition-transform duration-300 hover:scale-[1.03] ${
-        className || 'flex-none w-36 sm:w-44 md:w-48'
+        className || 'flex-none w-28 sm:w-36 md:w-44 lg:w-48'
       }`}
     >
       {/* Poster Image Container */}
-      <div className="relative aspect-[2/3] w-full rounded-xl overflow-hidden bg-[#121212] border border-[#262626] shadow-md shadow-black/40">
+      <div className="relative aspect-[2/3] w-full rounded-lg sm:rounded-xl overflow-hidden bg-[#121212] border border-[#262626] shadow-md shadow-black/40">
         <img
           src={movie.posterUrl || movie.backdropUrl || '/logo.png'}
           alt={movie.title}
@@ -40,23 +40,23 @@ export const MovieCard: React.FC<MovieCardProps> = ({
         />
 
         {/* Top Badges */}
-        <div className="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-none">
+        <div className="absolute top-1.5 left-1.5 right-1.5 sm:top-2 sm:left-2 sm:right-2 flex items-center justify-between pointer-events-none">
           {/* VJ Tag */}
-          <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider bg-[#000000]/90 backdrop-blur-md text-[#E50914] border border-[#E50914]/30 shadow">
+          <span className="px-1 sm:px-1.5 py-0.5 rounded text-[8.5px] sm:text-[10px] font-black uppercase tracking-wider bg-[#000000]/90 backdrop-blur-md text-[#E50914] border border-[#E50914]/30 shadow">
             {movie.vj.replace(/^VJ\s+/i, '') || 'VJ'}
           </span>
 
           {/* Rating Badge */}
-          <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#121212]/90 backdrop-blur-md text-white border border-[#262626] shadow">
-            <Star className="w-2.5 h-2.5 fill-[#E50914] text-[#E50914]" />
+          <span className="flex items-center gap-0.5 px-1 sm:px-1.5 py-0.5 rounded text-[8.5px] sm:text-[10px] font-bold bg-[#121212]/90 backdrop-blur-md text-white border border-[#262626] shadow">
+            <Star className="w-2 h-2 sm:w-2.5 sm:h-2.5 fill-[#E50914] text-[#E50914]" />
             {movie.rating.toFixed(1)}
           </span>
         </div>
 
         {/* Series Badge */}
         {movie.isTvSeries && (
-          <div className="absolute bottom-2 left-2 pointer-events-none">
-            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-[#FF3B30] text-white shadow">
+          <div className="absolute bottom-1.5 left-1.5 sm:bottom-2 sm:left-2 pointer-events-none">
+            <span className="px-1 sm:px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-bold uppercase bg-[#FF3B30] text-white shadow">
               Series
             </span>
           </div>

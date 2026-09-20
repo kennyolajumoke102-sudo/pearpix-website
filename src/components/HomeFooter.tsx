@@ -213,12 +213,16 @@ export const HomeFooter: React.FC<HomeFooterProps> = ({
               Filter by VJ & Genre
             </span>
             <span className="text-[#262626]">•</span>
-            <span className="hover:text-white transition-colors cursor-pointer" onClick={() => { onNavigateTab('movies'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
-              Translated Movies
+            <span className="hover:text-white transition-colors cursor-pointer" onClick={() => { onNavigateTab('contact'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
+              Request & Support
             </span>
             <span className="text-[#262626]">•</span>
-            <span className="hover:text-white transition-colors cursor-pointer" onClick={() => { onNavigateTab('series'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
-              Translated Series
+            <span className="hover:text-white transition-colors cursor-pointer" onClick={() => { onNavigateTab('about'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
+              About Us
+            </span>
+            <span className="text-[#262626]">•</span>
+            <span className="hover:text-white transition-colors cursor-pointer" onClick={() => { onNavigateTab('privacy'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
+              Privacy Policy
             </span>
           </div>
         </div>

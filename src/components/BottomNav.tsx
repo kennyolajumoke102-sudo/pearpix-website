@@ -1,16 +1,14 @@
 import React from 'react';
-import { Home, Film, Tv, Crown, User, Bookmark } from 'lucide-react';
-import { PearlUser, PearlSubscription } from '../types';
+import { Home, Film, Tv, User, Bookmark } from 'lucide-react';
+import { PearlUser } from '../types';
 
 interface BottomNavProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
   savedCount?: number;
   user?: PearlUser | null;
-  subscription?: PearlSubscription;
   onOpenAuth?: () => void;
   onOpenProfile?: () => void;
-  onOpenSubscription?: () => void;
 }
 
 export const BottomNav: React.FC<BottomNavProps> = ({
@@ -18,11 +16,11 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   onTabChange,
   savedCount = 0,
   user,
-  subscription,
   onOpenAuth,
-  onOpenProfile,
-  onOpenSubscription
+  onOpenProfile
 }) => {
+  const isProfileActive = activeTab === 'profile' || activeTab === 'auth';
+
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0A0A0A]/98 backdrop-blur-lg border-t border-[#262626] shadow-[0_-4px_20px_rgba(0,0,0,0.8)] safe-area-pb">
       <div className="flex items-center justify-around h-16 px-1">
@@ -85,41 +83,27 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           </span>
         </button>
 
-        {/* VIP Pass */}
-        <button
-          onClick={() => onOpenSubscription ? onOpenSubscription() : onTabChange('vip')}
-          className={`relative flex flex-col items-center justify-center flex-1 py-1 transition-colors cursor-pointer ${
-            activeTab === 'vip' ? 'text-[#E50914]' : 'text-[#94A3B8] hover:text-white'
-          }`}
-        >
-          <div className="relative">
-            <Crown className={`w-5 h-5 ${activeTab === 'vip' ? 'fill-current text-[#E50914]' : 'stroke-2 text-[#E50914]'}`} />
-            {subscription?.isSubscribed && (
-              <span className="absolute -top-1 -right-1.5 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-black" />
-            )}
-          </div>
-          <span className={`text-[10px] font-semibold tracking-tight mt-1 ${activeTab === 'vip' ? 'font-bold text-[#E50914]' : ''}`}>
-            {subscription?.isSubscribed ? 'VIP Pass' : 'Get VIP'}
-          </span>
-        </button>
-
         {/* Account / Profile */}
         <button
           onClick={() => {
             if (user && onOpenProfile) onOpenProfile();
             else if (!user && onOpenAuth) onOpenAuth();
-            else onTabChange('profile');
+            else onTabChange(user ? 'profile' : 'auth');
           }}
-          className="relative flex flex-col items-center justify-center flex-1 py-1 transition-colors cursor-pointer text-[#94A3B8] hover:text-white"
+          className={`relative flex flex-col items-center justify-center flex-1 py-1 transition-colors cursor-pointer ${
+            isProfileActive ? 'text-[#E50914]' : 'text-[#94A3B8] hover:text-white'
+          }`}
         >
           {user ? (
-            <div className="w-5 h-5 rounded-full bg-[#E50914] text-white text-[10px] font-black flex items-center justify-center shadow">
+            <div className={`w-5 h-5 rounded-full text-white text-[10px] font-black flex items-center justify-center shadow ${
+              isProfileActive ? 'bg-[#E50914] ring-2 ring-[#E50914]/40' : 'bg-[#2E2E2E]'
+            }`}>
               {user.name.charAt(0).toUpperCase()}
             </div>
           ) : (
-            <User className="w-5 h-5 stroke-2" />
+            <User className={`w-5 h-5 ${isProfileActive ? 'stroke-[2.5]' : 'stroke-2'}`} />
           )}
-          <span className="text-[10px] font-semibold tracking-tight mt-1">
+          <span className={`text-[10px] font-semibold tracking-tight mt-1 ${isProfileActive ? 'font-bold text-[#E50914]' : ''}`}>
             {user ? 'Account' : 'Sign In'}
           </span>
         </button>

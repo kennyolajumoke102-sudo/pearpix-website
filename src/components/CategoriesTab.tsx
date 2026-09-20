@@ -197,8 +197,8 @@ export const CategoriesTab: React.FC<CategoriesTabProps> = ({
           </div>
         ) : movies.length > 0 ? (
           <div>
-            {/* Responsive Grid with proper spacing for movie cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 3xl:grid-cols-8 gap-3 sm:gap-4 md:gap-5">
+            {/* Responsive Grid with compact spacing for movie cards */}
+            <div className="grid grid-cols-3 gap-2 sm:gap-3.5 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 3xl:grid-cols-8 md:gap-5">
               {movies.map(movie => (
                 <MovieCard
                   key={movie.id}

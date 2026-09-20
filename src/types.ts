@@ -100,6 +100,7 @@ export interface PearlUser {
   email: string;
   phone?: string;
   session?: string;
+  createdAt?: string | number;
 }
 
 export interface PearlSubscription {
@@ -107,6 +108,7 @@ export interface PearlSubscription {
   planId?: string;
   planName?: string;
   expireTimestamp?: number;
+  expiresAt?: number | string;
   amount?: number | string;
   invoiceDate?: string;
   lastPaymentId?: string;

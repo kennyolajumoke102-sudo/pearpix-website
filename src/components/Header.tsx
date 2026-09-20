@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Film, Bookmark, Crown, MessageSquare, User } from 'lucide-react';
+import { Search, Film, Bookmark, MessageSquare, User } from 'lucide-react';
 import { PearlUser, PearlSubscription } from '../types';
 
 interface HeaderProps {
@@ -11,7 +11,7 @@ interface HeaderProps {
   subscription: PearlSubscription;
   onOpenAuth: () => void;
   onOpenProfile: () => void;
-  onOpenSubscription: () => void;
+  onOpenSubscription?: () => void;
   onOpenContact: () => void;
 }
 
@@ -21,10 +21,9 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSearch,
   savedCount = 0,
   user,
-  subscription,
+  subscription: _subscription,
   onOpenAuth,
   onOpenProfile,
-  onOpenSubscription,
   onOpenContact
 }) => {
   return (
@@ -116,32 +115,19 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
           <button
             onClick={onOpenContact}
-            className="px-3.5 py-1.5 rounded-lg text-sm font-semibold text-[#94A3B8] hover:text-white hover:bg-[#161616] transition-colors flex items-center gap-1.5 cursor-pointer"
+            className={`px-3.5 py-1.5 rounded-lg text-sm font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
+              activeTab === 'contact'
+                ? 'bg-[#1F1F1F] text-[#E50914] shadow'
+                : 'text-[#94A3B8] hover:text-white hover:bg-[#161616]'
+            }`}
           >
             <MessageSquare className="w-3.5 h-3.5" />
-            <span>Contact & Requests</span>
+            <span>Support & Requests</span>
           </button>
         </nav>
 
         {/* Right Side Actions */}
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Quick VIP Pass Button */}
-          <button
-            id="header-vip-btn"
-            onClick={onOpenSubscription}
-            className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-sm ${
-              subscription.isSubscribed
-                ? 'bg-gradient-to-r from-[#B80710] to-[#E50914] text-white'
-                : 'bg-[#E50914]/15 hover:bg-[#E50914]/25 text-[#E50914] border border-[#E50914]/40'
-            }`}
-            title="VIP Subscription Plans"
-          >
-            <Crown className="w-3.5 h-3.5 fill-current" />
-            <span className="hidden sm:inline">
-              {subscription.isSubscribed ? 'VIP Active' : 'Get VIP'}
-            </span>
-          </button>
-
           {/* Quick Search Button */}
           <button
             id="header-search-btn"
@@ -157,7 +143,11 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               id="header-profile-btn"
               onClick={onOpenProfile}
-              className="flex items-center gap-2 p-1 pl-1.5 pr-2.5 rounded-xl bg-[#161616] hover:bg-[#202020] border border-[#262626] transition-all cursor-pointer"
+              className={`flex items-center gap-2 p-1 pl-1.5 pr-2.5 rounded-xl border transition-all cursor-pointer ${
+                activeTab === 'profile'
+                  ? 'bg-[#E50914]/20 border-[#E50914]'
+                  : 'bg-[#161616] hover:bg-[#202020] border-[#262626]'
+              }`}
               title="View Profile & Membership"
             >
               <div className="w-7 h-7 rounded-lg bg-[#E50914] text-white text-xs font-black flex items-center justify-center shadow">
