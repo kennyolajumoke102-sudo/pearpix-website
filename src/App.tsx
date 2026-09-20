@@ -19,7 +19,7 @@ import { SubscriptionPage } from './pages/SubscriptionPage';
 import { ContactPage } from './pages/ContactPage';
 import { AboutPage } from './pages/AboutPage';
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
-import { Film, Bookmark, Play } from 'lucide-react';
+import { Film, Bookmark, Play, Loader2 } from 'lucide-react';
 
 export function App() {
   const [sliderMovies, setSliderMovies] = useState<Movie[]>(FALLBACK_MOVIES);
@@ -551,15 +551,20 @@ export function App() {
 
       {/* Main Content Areas */}
       <main className="flex-1">
-        {loading && (
-          <div className="w-full bg-[#121212] border-b border-[#262626] px-4 py-2 text-center text-xs text-[#E50914] flex items-center justify-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-[#E50914] animate-ping" />
-            <span>Loading Ugandan VJ translated blockbusters & catalog...</span>
+        {/* Circular Loading Indicator for initial catalog load */}
+        {loading && homeSections.length === 0 && (
+          <div className="flex flex-col items-center justify-center min-h-[50vh] py-20 px-4 text-center">
+            <div className="relative flex items-center justify-center mb-4">
+              <div className="w-14 h-14 rounded-full border-3 border-[#262626] border-t-[#E50914] animate-spin" />
+              <Loader2 className="w-6 h-6 text-[#E50914] animate-spin absolute" />
+            </div>
+            <p className="text-sm font-bold text-white tracking-wide">Loading PearlPix</p>
+            <p className="text-xs text-[#94A3B8] mt-1">Connecting to stream servers & translated media catalog...</p>
           </div>
         )}
 
         {/* Home Screen Tab */}
-        {activeTab === 'home' && (
+        {activeTab === 'home' && (!loading || homeSections.length > 0) && (
           <div>
             {/* Hero Slider */}
             <HeroBanner

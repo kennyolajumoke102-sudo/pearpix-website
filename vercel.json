@@ -5,6 +5,10 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
+      "source": "/munopix-api/(.*)",
+      "destination": "http://85.190.254.61/$1"
+    },
+    {
       "source": "/bujjuko-config-api/(.*)",
       "destination": "http://194.9.62.158/$1"
     },

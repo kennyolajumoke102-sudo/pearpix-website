@@ -172,14 +172,18 @@ export async function fetchMunopixStream(options: {
     ? `type=series&id=${id}&season=${season}&episode=${episode}`
     : `type=movie&id=${id}`;
 
-  // Candidate URLs:
-  // 1. Relative proxy through dev server (avoids browser SSL/CORS issues)
-  // 2. Direct HTTPS to server IP
-  // 3. Direct HTTP to server IP
+  // Candidate URLs in order of reliability for local dev, Vercel, and direct connections:
+  // 1. Vercel serverless proxy endpoint /api/stream
+  // 2. Vercel serverless proxy endpoint /api/munopix
+  // 3. Rewritten proxy /munopix-api
+  // 4. Direct HTTP server IP
+  // 5. Direct HTTPS server IP
   const candidateUrls = [
+    `/api/stream?${queryParams}`,
+    `/api/munopix?${queryParams}`,
     `/munopix-api/munopix/test.php?${queryParams}`,
-    `https://85.190.254.61/munopix/test.php?${queryParams}`,
-    `http://85.190.254.61/munopix/test.php?${queryParams}`
+    `http://85.190.254.61/munopix/test.php?${queryParams}`,
+    `https://85.190.254.61/munopix/test.php?${queryParams}`
   ];
 
   for (const url of candidateUrls) {
@@ -316,10 +320,10 @@ export async function resolveStreamAndDownload(
     (movie.servers && movie.servers[0]?.url) ||
     'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
 
-  const defaultEndpoint = `https://db.bujjukomovies.com/api/collections/media/records/${movie.id}`;
+  const defaultEndpoint = `https://api.pearlpix.xyz/v1/${isSeries ? `series/${idInfo?.id || movie.id}/stream` : `movies/${idInfo?.id || movie.id}/stream`}`;
   const defaultRequestUrl = idInfo
     ? `https://85.190.254.61/munopix/test.php?type=${isSeries ? 'series' : 'movie'}&id=${idInfo.id}`
-    : `https://db.bujjukomovies.com/api/collections/media/records/${movie.id}`;
+    : `https://api.pearlpix.xyz/v1/movies/${movie.id}/stream`;
 
   const servers: ServerLink[] = Array.isArray(movie.servers) && movie.servers.length > 0
     ? movie.servers

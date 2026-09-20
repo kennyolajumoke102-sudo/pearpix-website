@@ -20,10 +20,22 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/pearlpix-api/, ''),
       },
       '/munopix-api': {
-        target: 'https://85.190.254.61',
+        target: 'http://85.190.254.61',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/munopix-api/, ''),
+      },
+      '/api/stream': {
+        target: 'http://85.190.254.61/munopix/test.php',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api\/stream/, ''),
+      },
+      '/api/munopix': {
+        target: 'http://85.190.254.61/munopix/test.php',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/api\/munopix/, ''),
       }
     }
   },
