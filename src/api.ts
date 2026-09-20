@@ -262,8 +262,20 @@ export function mapPocketBaseItem(item: any): Movie {
     ? (item.numberOfSeasons || (episodes && episodes.length > 0 ? Math.max(1, ...episodes.map((e: any) => e.season || 1)) : 1))
     : undefined;
 
+  const rawIdStr = String(item.pearlpixId || item.reelplexi_id || item.id || '');
+  const digits = rawIdStr.replace(/\D+/g, '');
+  const numericId = typeof item.reelplexi_id === 'number' && item.reelplexi_id > 0
+    ? item.reelplexi_id
+    : (typeof item.numericId === 'number' && item.numericId > 0 ? item.numericId : (digits ? parseInt(digits, 10) : undefined));
+
+  const pearlpixId = item.pearlpixId 
+    ? String(item.pearlpixId) 
+    : (numericId ? (isSeries ? `series_${numericId}` : `movie_${numericId}`) : undefined);
+
   return {
-    id: item.id || `movie-${Math.random().toString(36).substr(2, 9)}`,
+    id: item.id || (numericId ? String(numericId) : `movie-${Math.random().toString(36).substr(2, 9)}`),
+    numericId,
+    pearlpixId,
     title: item.title ? item.title.replace(/<[^>]*>?/gm, '').trim() : 'Untitled Movie',
     posterUrl: formatImageUrl(poster),
     backdropUrl: formatImageUrl(backdrop),
@@ -633,6 +645,9 @@ const resolvedPearlpixCache = new Map<string, Movie>();
 try {
   for (const [key, rawRecord] of Object.entries(resolvedConfiguredItemsJson)) {
     const movie = mapPocketBaseItem(rawRecord);
+    if (!movie.numericId && /^\d+$/.test(key)) {
+      movie.numericId = parseInt(key, 10);
+    }
     resolvedPearlpixCache.set(String(key), movie);
     const cleanId = String((rawRecord as any).pearlpixId || '').replace(/^(series|movie)_/i, '');
     if (cleanId) resolvedPearlpixCache.set(cleanId, movie);

@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Movie, Episode, PearlUser } from '../types';
 import { fetchMovieDetails } from '../api';
+import { resolveStreamAndDownload, ResolvedStreamResult } from '../services/munopixStreamService';
 import { 
   ArrowLeft, 
   Play, 
@@ -72,6 +73,7 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [showControls, setShowControls] = useState<boolean>(true);
   const [selectedServer, setSelectedServer] = useState<string>('');
+  const [resolvedStream, setResolvedStream] = useState<ResolvedStreamResult | null>(null);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const [showSettings, setShowSettings] = useState<boolean>(false);
 
@@ -146,14 +148,33 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
 
   // Update server / video URL whenever currentEpisode or activeMovie changes
   useEffect(() => {
+    let isMounted = true;
+
     if (serverUrl) {
       setSelectedServer(serverUrl);
-    } else if (currentEpisode && currentEpisode.videoUrl) {
-      setSelectedServer(currentEpisode.videoUrl);
-    } else if (activeMovie) {
-      const fallbackUrl = activeMovie.videoUrl || activeMovie.servers?.[0]?.url || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
-      setSelectedServer(fallbackUrl);
     }
+
+    if (activeMovie) {
+      resolveStreamAndDownload(activeMovie, currentEpisode)
+        .then(res => {
+          if (!isMounted) return;
+          setResolvedStream(res);
+          if (!serverUrl && res.streamUrl) {
+            setSelectedServer(res.streamUrl);
+          }
+        })
+        .catch(() => {
+          if (!isMounted) return;
+          if (!serverUrl) {
+            const fallbackUrl = currentEpisode?.videoUrl || activeMovie.videoUrl || activeMovie.servers?.[0]?.url || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+            setSelectedServer(fallbackUrl);
+          }
+        });
+    }
+
+    return () => {
+      isMounted = false;
+    };
   }, [serverUrl, currentEpisode, activeMovie]);
 
   // Handle controls hide timer
@@ -202,6 +223,14 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
     setCurrentSeason(ep.season || 1);
     if (ep.videoUrl) {
       setSelectedServer(ep.videoUrl);
+    }
+    if (activeMovie) {
+      resolveStreamAndDownload(activeMovie, ep).then(res => {
+        if (res && res.streamUrl) {
+          setResolvedStream(res);
+          setSelectedServer(res.streamUrl);
+        }
+      });
     }
     setCurrentTime(0);
     setIsPlaying(true);
@@ -344,7 +373,7 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  const activeVideoSrc = selectedServer || currentEpisode?.videoUrl || activeMovie.videoUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+  const activeVideoSrc = selectedServer || resolvedStream?.streamUrl || currentEpisode?.videoUrl || activeMovie.videoUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
 
   // Download handler for currently active movie or episode (Subscription Gated)
   const handleDownloadActiveMedia = () => {
@@ -354,10 +383,11 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
       else onOpenSubscription();
       return;
     }
+    const ext = resolvedStream?.format ? `.${resolvedStream.format}` : '.mp4';
     if (activeMovie.isTvSeries && currentEpisode) {
-      const downloadLink = currentEpisode.downloadUrl || currentEpisode.videoUrl || selectedServer || activeMovie.videoUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+      const downloadLink = resolvedStream?.downloadUrl || currentEpisode.downloadUrl || currentEpisode.videoUrl || selectedServer || activeMovie.videoUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
       const cleanTitle = (activeMovie.title || 'Series').replace(/[^a-zA-Z0-9_-]/g, '_');
-      const filename = `${cleanTitle}_S${currentEpisode.season || currentSeason}E${currentEpisode.episodeNumber || 1}.mp4`;
+      const filename = `${cleanTitle}_S${currentEpisode.season || currentSeason}E${currentEpisode.episodeNumber || 1}${ext}`;
       const a = document.createElement('a');
       a.href = downloadLink;
       a.download = filename;
@@ -367,10 +397,10 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
       a.click();
       document.body.removeChild(a);
     } else {
-      const downloadLink = selectedServer || activeMovie.videoUrl || activeMovie.servers?.[0]?.url || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+      const downloadLink = resolvedStream?.downloadUrl || selectedServer || activeMovie.downloadUrl || activeMovie.videoUrl || activeMovie.servers?.[0]?.url || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
       const cleanTitle = (activeMovie.title || 'Movie').replace(/[^a-zA-Z0-9_-]/g, '_');
       const cleanVj = (activeMovie.vj || 'VJ').replace(/[^a-zA-Z0-9_-]/g, '_');
-      const filename = `${cleanTitle}_${cleanVj}.mp4`;
+      const filename = `${cleanTitle}_${cleanVj}${ext}`;
       const a = document.createElement('a');
       a.href = downloadLink;
       a.download = filename;
@@ -621,7 +651,7 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
               Select Server
             </h4>
             <div className="space-y-1.5 mb-4">
-              {(activeMovie.servers || []).map((s, idx) => (
+              {((resolvedStream?.servers && resolvedStream.servers.length > 0) ? resolvedStream.servers : (activeMovie.servers || [])).map((s, idx) => (
                 <button
                   key={idx}
                   onClick={() => {
@@ -634,8 +664,8 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
                       : 'bg-[#1F1F1F] text-white hover:bg-[#2A2A2A]'
                   }`}
                 >
-                  <span>{s.name || `Server ${idx + 1}`}</span>
-                  <span className="text-[10px] opacity-75">{s.quality || '1080p'}</span>
+                  <span className="truncate pr-2">{s.name || `Server ${idx + 1}`}</span>
+                  <span className="text-[10px] opacity-75 shrink-0">{s.quality || '1080p'}</span>
                 </button>
               ))}
             </div>

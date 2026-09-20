@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Movie, Episode } from '../types';
+import { resolveStreamAndDownload } from '../services/munopixStreamService';
 import {
   ArrowLeft,
   Play,
@@ -52,16 +53,29 @@ export const DetailModal: React.FC<DetailModalProps> = ({
   const [downloadedIds, setDownloadedIds] = useState<Set<string>>(new Set());
 
   // Download movie handler
-  const handleDownloadMovie = () => {
+  const handleDownloadMovie = async () => {
     if (!movie) return;
     if (!isSubscribed) {
       if (onOpenSubscription) onOpenSubscription();
       return;
     }
-    const downloadLink = movie.videoUrl || movie.servers?.[0]?.url || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+
+    let downloadLink = movie.videoUrl || movie.servers?.[0]?.url || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+    let ext = '.mp4';
+
+    try {
+      const resolved = await resolveStreamAndDownload(movie);
+      if (resolved && resolved.downloadUrl) {
+        downloadLink = resolved.downloadUrl;
+        if (resolved.format) ext = `.${resolved.format}`;
+      }
+    } catch {
+      // fallback
+    }
+
     const cleanTitle = (movie.title || 'Movie').replace(/[^a-zA-Z0-9_-]/g, '_');
     const cleanVj = (movie.vj || 'VJ').replace(/[^a-zA-Z0-9_-]/g, '_');
-    const filename = `${cleanTitle}_${cleanVj}.mp4`;
+    const filename = `${cleanTitle}_${cleanVj}${ext}`;
 
     const a = document.createElement('a');
     a.href = downloadLink;
@@ -76,15 +90,28 @@ export const DetailModal: React.FC<DetailModalProps> = ({
   };
 
   // Download individual episode handler
-  const handleDownloadEpisode = (ep: Episode, epNum: number) => {
+  const handleDownloadEpisode = async (ep: Episode, epNum: number) => {
     if (!movie) return;
     if (!isSubscribed) {
       if (onOpenSubscription) onOpenSubscription();
       return;
     }
-    const downloadLink = ep.downloadUrl || ep.videoUrl || ep.servers?.[0]?.url || movie.videoUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+
+    let downloadLink = ep.downloadUrl || ep.videoUrl || ep.servers?.[0]?.url || movie.videoUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+    let ext = '.mp4';
+
+    try {
+      const resolved = await resolveStreamAndDownload(movie, ep);
+      if (resolved && resolved.downloadUrl) {
+        downloadLink = resolved.downloadUrl;
+        if (resolved.format) ext = `.${resolved.format}`;
+      }
+    } catch {
+      // fallback
+    }
+
     const cleanTitle = (movie.title || 'Series').replace(/[^a-zA-Z0-9_-]/g, '_');
-    const filename = `${cleanTitle}_S${ep.season || selectedSeason}E${epNum}.mp4`;
+    const filename = `${cleanTitle}_S${ep.season || selectedSeason}E${epNum}${ext}`;
 
     const a = document.createElement('a');
     a.href = downloadLink;

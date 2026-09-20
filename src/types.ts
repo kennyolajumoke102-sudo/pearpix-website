@@ -26,16 +26,26 @@ export interface Episode {
   duration?: string;
   videoUrl?: string;
   downloadUrl?: string;
+  streamUrl?: string;
+  remuxUrl?: string;
+  format?: string;
+  fileSize?: string;
   servers?: ServerLink[];
 }
 
 export interface Movie {
   id: string; // PocketBase ID or generated ID
   numericId?: number;
+  pearlpixId?: string;
   title: string;
   posterUrl: string;
   backdropUrl: string;
   videoUrl?: string;
+  downloadUrl?: string;
+  streamUrl?: string;
+  remuxUrl?: string;
+  format?: string;
+  fileSize?: string;
   description: string;
   vj: string; // e.g. "VJ JUNIOR", "VJ JINGO", "VJ EMMY"
   genre: string;

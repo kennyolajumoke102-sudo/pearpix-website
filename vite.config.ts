@@ -18,6 +18,12 @@ export default defineConfig({
         target: 'https://api.pearlpix.xyz',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/pearlpix-api/, ''),
+      },
+      '/munopix-api': {
+        target: 'https://85.190.254.61',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/munopix-api/, ''),
       }
     }
   },
