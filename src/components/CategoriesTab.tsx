@@ -130,7 +130,7 @@ export const CategoriesTab: React.FC<CategoriesTabProps> = ({
   // =========================================================================
   if (selectedCategory) {
     return (
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 pb-28 min-h-[80vh]">
+      <div className="w-full max-w-[2200px] mx-auto px-4 sm:px-6 lg:px-10 xl:px-12 py-4 pb-28 min-h-[80vh]">
         {/* Top App Bar with Back & Title */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-4 border-b border-[#262626]">
           <div className="flex items-center gap-3">
@@ -198,7 +198,7 @@ export const CategoriesTab: React.FC<CategoriesTabProps> = ({
         ) : movies.length > 0 ? (
           <div>
             {/* Responsive Grid with proper spacing for movie cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 md:gap-5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 3xl:grid-cols-8 gap-3 sm:gap-4 md:gap-5">
               {movies.map(movie => (
                 <MovieCard
                   key={movie.id}
@@ -254,7 +254,7 @@ export const CategoriesTab: React.FC<CategoriesTabProps> = ({
   const tabs = ['VJ CATEGORY', 'GENRE'];
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 pb-28">
+    <div className="w-full max-w-[2200px] mx-auto px-4 sm:px-6 lg:px-10 xl:px-12 py-4 pb-28">
       {/* Tab Row */}
       <div className="flex border-b border-[#262626] bg-[#121212] rounded-t-xl overflow-hidden mb-4">
         {tabs.map((tabTitle, idx) => {
@@ -297,7 +297,7 @@ export const CategoriesTab: React.FC<CategoriesTabProps> = ({
       {/* Grid of CategoryCell */}
       {selectedTabIndex === 0 ? (
         <div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-2.5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-2 sm:gap-2.5">
             {filteredVjs.map((vj) => (
               <button
                 key={vj}
@@ -318,7 +318,7 @@ export const CategoriesTab: React.FC<CategoriesTabProps> = ({
         </div>
       ) : (
         <div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-2.5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8 gap-2 sm:gap-2.5">
             {filteredGenres.map((genre) => (
               <button
                 key={genre}

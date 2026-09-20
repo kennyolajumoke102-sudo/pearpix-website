@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Movie, Episode } from '../types';
+import { Movie, Episode, PearlUser } from '../types';
 import { fetchMovieDetails } from '../api';
 import { 
   ArrowLeft, 
@@ -21,7 +21,10 @@ import {
   CheckCircle2,
   Film,
   Loader2,
-  Smartphone
+  Smartphone,
+  Download,
+  Crown,
+  Lock
 } from 'lucide-react';
 
 interface PlayerModalProps {
@@ -30,6 +33,10 @@ interface PlayerModalProps {
   serverUrl?: string;
   onClose: () => void;
   onSaveProgress: (movie: Movie, currentSeconds: number, totalSeconds: number, episodeTitle?: string) => void;
+  user: PearlUser | null;
+  isSubscribed: boolean;
+  onOpenSubscription: () => void;
+  onOpenAuth: () => void;
 }
 
 export const PlayerModal: React.FC<PlayerModalProps> = ({
@@ -37,7 +44,11 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
   episode: initialEpisode,
   serverUrl,
   onClose,
-  onSaveProgress
+  onSaveProgress,
+  user,
+  isSubscribed,
+  onOpenSubscription,
+  onOpenAuth
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -63,6 +74,9 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
   const [selectedServer, setSelectedServer] = useState<string>('');
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const [showSettings, setShowSettings] = useState<boolean>(false);
+
+  // 3-second free preview limit lock state
+  const [previewLimitReached, setPreviewLimitReached] = useState<boolean>(false);
 
   const controlsTimeoutRef = useRef<any>(null);
 
@@ -213,6 +227,12 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
 
   const togglePlay = () => {
     if (!videoRef.current) return;
+    if (!isSubscribed && (previewLimitReached || videoRef.current.currentTime >= 3.0)) {
+      setPreviewLimitReached(true);
+      if (!user) onOpenAuth();
+      else onOpenSubscription();
+      return;
+    }
     if (isPlaying) {
       videoRef.current.pause();
     } else {
@@ -223,14 +243,32 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
 
   const handleTimeUpdate = () => {
     if (!videoRef.current) return;
-    setCurrentTime(videoRef.current.currentTime);
+    const time = videoRef.current.currentTime;
+    setCurrentTime(time);
     setDuration(videoRef.current.duration || 0);
 
+    // SUBSCRIPTION CHECKER:
+    // All movies are subscription; free users watch for 3 seconds before subscription dialogue triggers
+    if (!isSubscribed) {
+      if (time >= 3.0) {
+        videoRef.current.pause();
+        videoRef.current.currentTime = 3.0;
+        setIsPlaying(false);
+        setPreviewLimitReached(true);
+        if (!user) {
+          onOpenAuth();
+        } else {
+          onOpenSubscription();
+        }
+        return;
+      }
+    }
+
     // Periodic progress save
-    if (Math.floor(videoRef.current.currentTime) % 10 === 0 && videoRef.current.duration) {
+    if (Math.floor(time) % 10 === 0 && videoRef.current.duration) {
       onSaveProgress(
         activeMovie, 
-        videoRef.current.currentTime, 
+        time, 
         videoRef.current.duration,
         currentEpisode?.title
       );
@@ -239,6 +277,18 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const time = parseFloat(e.target.value);
+    if (!isSubscribed && time > 3.0) {
+      setCurrentTime(3.0);
+      if (videoRef.current) {
+        videoRef.current.currentTime = 3.0;
+        videoRef.current.pause();
+      }
+      setIsPlaying(false);
+      setPreviewLimitReached(true);
+      if (!user) onOpenAuth();
+      else onOpenSubscription();
+      return;
+    }
     setCurrentTime(time);
     if (videoRef.current) {
       videoRef.current.currentTime = time;
@@ -247,7 +297,17 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
 
   const skipTime = (seconds: number) => {
     if (!videoRef.current) return;
-    videoRef.current.currentTime = Math.max(0, Math.min(videoRef.current.duration || 0, videoRef.current.currentTime + seconds));
+    const target = videoRef.current.currentTime + seconds;
+    if (!isSubscribed && target > 3.0) {
+      videoRef.current.currentTime = 3.0;
+      videoRef.current.pause();
+      setIsPlaying(false);
+      setPreviewLimitReached(true);
+      if (!user) onOpenAuth();
+      else onOpenSubscription();
+      return;
+    }
+    videoRef.current.currentTime = Math.max(0, Math.min(videoRef.current.duration || 0, target));
   };
 
   const toggleMute = () => {
@@ -285,6 +345,63 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
   };
 
   const activeVideoSrc = selectedServer || currentEpisode?.videoUrl || activeMovie.videoUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+
+  // Download handler for currently active movie or episode (Subscription Gated)
+  const handleDownloadActiveMedia = () => {
+    if (!activeMovie) return;
+    if (!isSubscribed) {
+      if (!user) onOpenAuth();
+      else onOpenSubscription();
+      return;
+    }
+    if (activeMovie.isTvSeries && currentEpisode) {
+      const downloadLink = currentEpisode.downloadUrl || currentEpisode.videoUrl || selectedServer || activeMovie.videoUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+      const cleanTitle = (activeMovie.title || 'Series').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const filename = `${cleanTitle}_S${currentEpisode.season || currentSeason}E${currentEpisode.episodeNumber || 1}.mp4`;
+      const a = document.createElement('a');
+      a.href = downloadLink;
+      a.download = filename;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } else {
+      const downloadLink = selectedServer || activeMovie.videoUrl || activeMovie.servers?.[0]?.url || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+      const cleanTitle = (activeMovie.title || 'Movie').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const cleanVj = (activeMovie.vj || 'VJ').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const filename = `${cleanTitle}_${cleanVj}.mp4`;
+      const a = document.createElement('a');
+      a.href = downloadLink;
+      a.download = filename;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+  };
+
+  const handleDownloadSpecificEpisode = (ep: Episode, epIdx: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!activeMovie) return;
+    if (!isSubscribed) {
+      if (!user) onOpenAuth();
+      else onOpenSubscription();
+      return;
+    }
+    const downloadLink = ep.downloadUrl || ep.videoUrl || ep.servers?.[0]?.url || activeMovie.videoUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+    const cleanTitle = (activeMovie.title || 'Series').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const filename = `${cleanTitle}_S${ep.season || currentSeason}E${ep.episodeNumber || epIdx + 1}.mp4`;
+    const a = document.createElement('a');
+    a.href = downloadLink;
+    a.download = filename;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
 
   return (
     <div 
@@ -326,6 +443,59 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
         playsInline
         autoPlay
       />
+
+      {/* 3-Second Free Preview Limit Paywall Overlay */}
+      {!isSubscribed && previewLimitReached && (
+        <div className="absolute inset-0 z-40 bg-black/95 backdrop-blur-lg flex flex-col items-center justify-center p-6 text-center animate-fadeIn">
+          <div className="w-20 h-20 rounded-3xl bg-[#E50914]/20 border-2 border-[#E50914] text-[#E50914] flex items-center justify-center mb-4 shadow-2xl shadow-[#E50914]/40 animate-pulse">
+            <Crown className="w-10 h-10 fill-current" />
+          </div>
+
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E50914]/20 border border-[#E50914]/40 text-[#E50914] font-black text-xs uppercase tracking-wider mb-2">
+            <Lock className="w-3.5 h-3.5" />
+            <span>3-Second Free Preview Finished</span>
+          </div>
+
+          <h3 className="text-2xl sm:text-3xl font-black text-white max-w-lg tracking-tight">
+            Unlock Full Movie with VIP Pass
+          </h3>
+
+          <p className="text-xs sm:text-sm text-[#94A3B8] max-w-md mt-2 mb-6 leading-relaxed">
+            You previewed 3 seconds of <strong className="text-white">{activeMovie.title}</strong> translated by <strong className="text-[#E50914]">{activeMovie.vj}</strong>. All movies require an active PearlPix VIP subscription. Activate your pass from only 7,000 UGX to stream uninterrupted.
+          </p>
+
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full max-w-md">
+            {!user ? (
+              <button
+                onClick={onOpenAuth}
+                className="w-full sm:flex-1 py-3.5 rounded-2xl bg-[#E50914] hover:bg-[#B80710] text-white font-black text-sm uppercase tracking-wider shadow-xl shadow-[#E50914]/30 transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                <span>Sign In / Create Account</span>
+              </button>
+            ) : (
+              <button
+                onClick={onOpenSubscription}
+                className="w-full sm:flex-1 py-3.5 rounded-2xl bg-[#E50914] hover:bg-[#B80710] text-white font-black text-sm uppercase tracking-wider shadow-xl shadow-[#E50914]/30 flex items-center justify-center gap-2 transition-all cursor-pointer"
+              >
+                <Crown className="w-4 h-4 fill-current" />
+                <span>Activate VIP Pass (7,000 UGX)</span>
+              </button>
+            )}
+
+            <button
+              onClick={() => {
+                if (videoRef.current) {
+                  onSaveProgress(activeMovie, videoRef.current.currentTime, videoRef.current.duration || 0, currentEpisode?.title);
+                }
+                onClose();
+              }}
+              className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-[#1A1A1A] hover:bg-[#252525] border border-[#333] text-white font-bold text-sm transition-colors cursor-pointer"
+            >
+              Exit Player
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Video Buffering / Loading Indicator */}
       {isVideoLoading && (
@@ -419,6 +589,15 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
                 </span>
               </button>
             )}
+
+            {/* Download Button (For movie or active episode) */}
+            <button
+              onClick={handleDownloadActiveMedia}
+              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white backdrop-blur-md transition-colors cursor-pointer"
+              title={activeMovie.isTvSeries ? "Download Active Episode" : "Download Movie"}
+            >
+              <Download className="w-5 h-5 text-[#E50914]" />
+            </button>
 
             {/* Stream Settings Button */}
             <button
@@ -752,6 +931,15 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
                           {ep.description}
                         </p>
                       </div>
+
+                      {/* Episode Download Button */}
+                      <button
+                        onClick={(e) => handleDownloadSpecificEpisode(ep, idx, e)}
+                        className="self-center p-2 rounded-lg bg-[#181818] hover:bg-[#2A2A2A] text-white border border-[#262626] hover:border-[#E50914] transition-colors cursor-pointer ml-2 flex-none"
+                        title={`Download Episode ${ep.episodeNumber || idx + 1}`}
+                      >
+                        <Download className="w-4 h-4 text-[#E50914]" />
+                      </button>
                     </div>
                   </div>
                 );

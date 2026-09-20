@@ -9,7 +9,11 @@ import {
   ChevronUp,
   PlayCircle,
   X,
-  Film
+  Film,
+  Download,
+  Check,
+  Crown,
+  MessageSquare
 } from 'lucide-react';
 import { MovieCard } from './MovieCard';
 
@@ -22,6 +26,9 @@ interface DetailModalProps {
   allMovies?: Movie[];
   onSelectMovie?: (movie: Movie) => void;
   savedIds?: Set<string>;
+  isSubscribed?: boolean;
+  onOpenSubscription?: () => void;
+  onOpenContact?: (movieTitle?: string) => void;
 }
 
 export const DetailModal: React.FC<DetailModalProps> = ({
@@ -32,13 +39,64 @@ export const DetailModal: React.FC<DetailModalProps> = ({
   onToggleSave,
   allMovies = [],
   onSelectMovie,
-  savedIds = new Set()
+  savedIds = new Set(),
+  isSubscribed = false,
+  onOpenSubscription,
+  onOpenContact
 }) => {
   const [selectedSeason, setSelectedSeason] = useState(1);
   const [isOverviewExpanded, setIsOverviewExpanded] = useState(false);
   const [expandedEpisodeIndex, setExpandedEpisodeIndex] = useState<number | null>(null);
   const [showAllEpisodes, setShowAllEpisodes] = useState(false);
   const [showTrailerModal, setShowTrailerModal] = useState(false);
+  const [downloadedIds, setDownloadedIds] = useState<Set<string>>(new Set());
+
+  // Download movie handler
+  const handleDownloadMovie = () => {
+    if (!movie) return;
+    if (!isSubscribed) {
+      if (onOpenSubscription) onOpenSubscription();
+      return;
+    }
+    const downloadLink = movie.videoUrl || movie.servers?.[0]?.url || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+    const cleanTitle = (movie.title || 'Movie').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const cleanVj = (movie.vj || 'VJ').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const filename = `${cleanTitle}_${cleanVj}.mp4`;
+
+    const a = document.createElement('a');
+    a.href = downloadLink;
+    a.download = filename;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    setDownloadedIds(prev => new Set(prev).add(movie.id));
+  };
+
+  // Download individual episode handler
+  const handleDownloadEpisode = (ep: Episode, epNum: number) => {
+    if (!movie) return;
+    if (!isSubscribed) {
+      if (onOpenSubscription) onOpenSubscription();
+      return;
+    }
+    const downloadLink = ep.downloadUrl || ep.videoUrl || ep.servers?.[0]?.url || movie.videoUrl || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+    const cleanTitle = (movie.title || 'Series').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const filename = `${cleanTitle}_S${ep.season || selectedSeason}E${epNum}.mp4`;
+
+    const a = document.createElement('a');
+    a.href = downloadLink;
+    a.download = filename;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    setDownloadedIds(prev => new Set(prev).add(`${movie.id}-ep-${epNum}`));
+  };
 
   // Compute similar titles based on matching genre or VJ
   const similarMovies = useMemo(() => {
@@ -192,7 +250,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({
           </div>
 
           {/* ============================================================= */}
-          {/* 4. PRIMARY ACTIONS ROW (Play Now and Favorite)                */}
+          {/* 4. PRIMARY ACTIONS ROW (Play Now, Download, and Favorite)      */}
           {/* ============================================================= */}
           <div className="flex items-center gap-3 pt-2">
             {/* Play Now Button */}
@@ -204,6 +262,28 @@ export const DetailModal: React.FC<DetailModalProps> = ({
               <Play className="w-5 h-5 fill-current" />
               <span>Play Now</span>
             </button>
+
+            {/* Download Button (For Movies Only) */}
+            {!movie.isTvSeries && (
+              <button
+                id="detail-download-btn"
+                onClick={handleDownloadMovie}
+                className="h-12 px-4 sm:px-5 rounded-xl bg-[#121212] hover:bg-[#1F1F1F] border border-[#262626] hover:border-[#E50914] text-white flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                title="Download Movie"
+              >
+                {downloadedIds.has(movie.id) ? (
+                  <>
+                    <Check className="w-5 h-5 text-[#E50914]" />
+                    <span className="text-xs sm:text-sm font-bold text-[#E50914] hidden sm:inline">Downloaded</span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-5 h-5 text-[#E50914]" />
+                    <span className="text-xs sm:text-sm font-bold hidden sm:inline">Download</span>
+                  </>
+                )}
+              </button>
+            )}
 
             {/* Favorite / Watchlist Button */}
             <button
@@ -220,6 +300,46 @@ export const DetailModal: React.FC<DetailModalProps> = ({
                 }`}
               />
             </button>
+          </div>
+
+          {/* VIP Access Banner & Request Translation Button */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 p-3 rounded-xl bg-[#141414] border border-[#262626]">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-[#E50914]/20 border border-[#E50914]/40 flex items-center justify-center text-[#E50914] flex-none">
+                <Crown className="w-4 h-4 fill-current" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-white">
+                  {isSubscribed ? 'VIP Pass Active' : 'VIP Subscription Required'}
+                </p>
+                <p className="text-[11px] text-[#94A3B8]">
+                  {isSubscribed 
+                    ? 'Unlimited streaming and high-speed downloads enabled.' 
+                    : 'Free preview: 3 seconds before prompt. Plans from 7,000 UGX.'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 self-end sm:self-auto">
+              {!isSubscribed && onOpenSubscription && (
+                <button
+                  onClick={onOpenSubscription}
+                  className="px-3 py-1.5 rounded-lg bg-[#E50914] hover:bg-[#B80710] text-white text-xs font-black uppercase tracking-wider transition-colors cursor-pointer"
+                >
+                  Get VIP
+                </button>
+              )}
+              {onOpenContact && (
+                <button
+                  onClick={() => onOpenContact(movie.title)}
+                  className="px-3 py-1.5 rounded-lg bg-[#1F1F1F] hover:bg-[#2A2A2A] text-[#94A3B8] hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  title="Request translated voiceover, fix link, or request another episode"
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  <span>Request / Report</span>
+                </button>
+              )}
+            </div>
           </div>
 
           {/* ============================================================= */}
@@ -357,8 +477,24 @@ export const DetailModal: React.FC<DetailModalProps> = ({
                             </span>
                           </div>
 
-                          {/* Actions: Play and Expand Overview */}
+                          {/* Actions: Download Episode, Play and Expand Overview */}
                           <div className="flex items-center gap-1.5 flex-none">
+                            <button
+                              id={`detail-download-ep-${idx}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDownloadEpisode(ep, epNumber);
+                              }}
+                              className="w-9 h-9 rounded-lg bg-[#181818] hover:bg-[#222222] border border-[#262626] hover:border-[#E50914] text-white flex items-center justify-center transition-colors cursor-pointer"
+                              title={`Download Episode ${epNumber}`}
+                            >
+                              {downloadedIds.has(`${movie.id}-ep-${epNumber}`) ? (
+                                <Check className="w-4 h-4 text-[#E50914]" />
+                              ) : (
+                                <Download className="w-4 h-4 text-[#E50914]" />
+                              )}
+                            </button>
+
                             <button
                               onClick={() => onPlay(movie, ep)}
                               className="w-9 h-9 rounded-lg bg-[#E50914] hover:bg-[#B80710] text-white flex items-center justify-center transition-colors cursor-pointer shadow"

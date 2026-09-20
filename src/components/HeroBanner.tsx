@@ -50,7 +50,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
       </div>
 
       {/* Content */}
-      <div className="relative h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col justify-end pb-12 sm:pb-16 z-10">
+      <div className="relative h-full w-full max-w-[2200px] mx-auto px-4 sm:px-6 lg:px-10 xl:px-12 flex flex-col justify-end pb-12 sm:pb-16 z-10">
         <div className="max-w-2xl">
           {/* VJ Pill & Series Badge */}
           <div className="flex flex-wrap items-center gap-2 mb-2 sm:mb-3">

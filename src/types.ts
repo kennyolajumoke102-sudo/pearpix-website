@@ -93,6 +93,36 @@ export interface SubscriptionPlan {
   tag?: string;
 }
 
+export interface PearlUser {
+  isLogin: boolean;
+  userId: string;
+  name: string;
+  email: string;
+  phone?: string;
+  session?: string;
+}
+
+export interface PearlSubscription {
+  isSubscribed: boolean;
+  planId?: string;
+  planName?: string;
+  expireTimestamp?: number;
+  amount?: number | string;
+  invoiceDate?: string;
+  lastPaymentId?: string;
+}
+
+export interface ContactTicket {
+  id: string;
+  name: string;
+  emailOrPhone: string;
+  type: 'movie_request' | 'vj_request' | 'payment_issue' | 'support' | 'other';
+  vj?: string;
+  subject?: string;
+  message: string;
+  createdAt: number;
+}
+
 export interface DownloadItem {
   id: string;
   movieId: string;

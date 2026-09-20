@@ -125,7 +125,7 @@ export const SearchTab: React.FC<SearchTabProps> = ({
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24">
+    <div className="w-full max-w-[2200px] mx-auto px-4 sm:px-6 lg:px-10 xl:px-12 py-6 pb-24">
       {/* Search Input Bar */}
       <div className="relative max-w-3xl mx-auto mb-4">
         <div className="relative flex items-center">
@@ -227,14 +227,14 @@ export const SearchTab: React.FC<SearchTabProps> = ({
 
       {/* Grid of Results */}
       {isLoading && results.length === 0 ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
-          {Array.from({ length: 12 }).map((_, i) => (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 3xl:grid-cols-8 gap-3 sm:gap-4">
+          {Array.from({ length: 16 }).map((_, i) => (
             <div key={i} className="animate-pulse bg-[#121212] rounded-2xl aspect-[2/3] border border-[#262626]" />
           ))}
         </div>
       ) : results.length > 0 ? (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 3xl:grid-cols-8 gap-3 sm:gap-4">
             {results.map((movie) => (
               <div key={movie.id} className="flex justify-center">
                 <MovieCard

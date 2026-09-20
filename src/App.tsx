@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Movie, Episode, WatchHistoryItem, HomeSection } from './types';
+import { Movie, Episode, WatchHistoryItem, HomeSection, PearlUser, PearlSubscription } from './types';
 import { fetchHomeSectionsData, FALLBACK_MOVIES } from './api';
+import { pearlGetSavedUser, pearlGetSavedSubscription, pearlLogout } from './services/pearlAuth';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
 import { HeroBanner } from './components/HeroBanner';
@@ -10,15 +11,31 @@ import { DetailModal } from './components/DetailModal';
 import { PlayerModal } from './components/PlayerModal';
 import { SearchTab } from './components/SearchTab';
 import { CategoriesTab } from './components/CategoriesTab';
-import { Film, Sparkles, Clapperboard, Tv, Bookmark, Play } from 'lucide-react';
+import { MediaCatalogView } from './components/MediaCatalogView';
+import { HomeFooter } from './components/HomeFooter';
+import { AuthModal } from './components/AuthModal';
+import { SubscriptionModal } from './components/SubscriptionModal';
+import { ProfileModal } from './components/ProfileModal';
+import { ContactModal } from './components/ContactModal';
+import { Film, Bookmark, Play } from 'lucide-react';
 
 export function App() {
   const [sliderMovies, setSliderMovies] = useState<Movie[]>(FALLBACK_MOVIES);
   const [homeSections, setHomeSections] = useState<HomeSection[]>([]);
   const [allMoviesPool, setAllMoviesPool] = useState<Movie[]>(FALLBACK_MOVIES);
   const [loading, setLoading] = useState<boolean>(true);
-  const [homeContentType, setHomeContentType] = useState<'all' | 'movie' | 'series'>('all');
   
+  // User Authentication & Subscription state
+  const [user, setUser] = useState<PearlUser | null>(() => pearlGetSavedUser());
+  const [subscription, setSubscription] = useState<PearlSubscription>(() => pearlGetSavedSubscription());
+
+  // Modal dialog states
+  const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState<boolean>(false);
+  const [showProfileModal, setShowProfileModal] = useState<boolean>(false);
+  const [showContactModal, setShowContactModal] = useState<boolean>(false);
+  const [contactInitialSubject, setContactInitialSubject] = useState<string>('');
+
   // Navigation & Category Drilldown state
   const [activeTab, setActiveTab] = useState<string>('home');
   const [targetVj, setTargetVj] = useState<string | null>(null);
@@ -168,18 +185,10 @@ export function App() {
     setActiveTab('categories');
   };
 
-  // Filter sections by content type tab on Home
-  const filteredHomeSections = homeSections.map(sec => {
-    if (homeContentType === 'movie') {
-      const moviesOnly = sec.movies.filter(m => !m.isTvSeries);
-      return { ...sec, movies: moviesOnly };
-    }
-    if (homeContentType === 'series') {
-      const seriesOnly = sec.movies.filter(m => m.isTvSeries);
-      return { ...sec, movies: seriesOnly };
-    }
-    return sec;
-  }).filter(sec => sec.movies.length > 0);
+  // Filter non-empty home sections
+  const filteredHomeSections = useMemo(() => {
+    return homeSections.filter(sec => sec.movies && sec.movies.length > 0);
+  }, [homeSections]);
 
   // Compute all saved movie objects (from cache map + pooled movies)
   const savedMovies = useMemo(() => {
@@ -206,21 +215,67 @@ export function App() {
     return list;
   }, [savedIds, savedMoviesMap, allMoviesPool, myListFilter]);
 
+  // Auth & Subscription Action Handlers
+  const handleOpenContact = (subject?: string) => {
+    if (subject) {
+      setContactInitialSubject(`Request / Report: ${subject}`);
+    } else {
+      setContactInitialSubject('');
+    }
+    setShowContactModal(true);
+  };
+
+  const handleLoginSuccess = (newUser: PearlUser) => {
+    setUser(newUser);
+    const sub = pearlGetSavedSubscription();
+    setSubscription(sub);
+  };
+
+  const handleLogout = () => {
+    pearlLogout();
+    setUser(null);
+    setSubscription({ isSubscribed: false });
+    setShowProfileModal(false);
+  };
+
+  const handleSubscriptionActivated = (newSub: PearlSubscription) => {
+    setSubscription(newSub);
+    const updatedUser = pearlGetSavedUser();
+    if (updatedUser) setUser(updatedUser);
+  };
+
+  const handleTabChange = (tab: string) => {
+    if (tab === 'vip') {
+      setShowSubscriptionModal(true);
+      return;
+    }
+    if (tab === 'profile') {
+      if (user) setShowProfileModal(true);
+      else setShowAuthModal(true);
+      return;
+    }
+    setActiveTab(tab);
+    if (tab !== 'categories') {
+      setTargetVj(null);
+      setTargetGenre(null);
+      setTargetCategoryTitle(null);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#000000] text-white flex flex-col selection:bg-[#E50914] selection:text-white">
       {/* Top App Header */}
       <Header
         activeTab={activeTab}
-        onTabChange={(tab) => {
-          setActiveTab(tab);
-          if (tab !== 'categories') {
-            setTargetVj(null);
-            setTargetGenre(null);
-            setTargetCategoryTitle(null);
-          }
-        }}
+        onTabChange={handleTabChange}
         onOpenSearch={() => setActiveTab('search')}
         savedCount={savedIds.size}
+        user={user}
+        subscription={subscription}
+        onOpenAuth={() => setShowAuthModal(true)}
+        onOpenProfile={() => setShowProfileModal(true)}
+        onOpenSubscription={() => setShowSubscriptionModal(true)}
+        onOpenContact={() => handleOpenContact()}
       />
 
       {/* Main Content Areas */}
@@ -244,48 +299,9 @@ export function App() {
               onToggleSave={handleToggleSave}
             />
 
-            {/* Quick Content Type Filter Bar */}
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 mb-2">
-              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
-                <button
-                  onClick={() => setHomeContentType('all')}
-                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    homeContentType === 'all'
-                      ? 'bg-[#E50914] text-white shadow-md font-extrabold'
-                      : 'bg-[#121212] text-[#94A3B8] hover:text-white border border-[#262626]'
-                  }`}
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  All Releases
-                </button>
-                <button
-                  onClick={() => setHomeContentType('movie')}
-                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    homeContentType === 'movie'
-                      ? 'bg-[#E50914] text-white shadow-md font-extrabold'
-                      : 'bg-[#121212] text-[#94A3B8] hover:text-white border border-[#262626]'
-                  }`}
-                >
-                  <Clapperboard className="w-3.5 h-3.5" />
-                  Movies Only
-                </button>
-                <button
-                  onClick={() => setHomeContentType('series')}
-                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    homeContentType === 'series'
-                      ? 'bg-[#E50914] text-white shadow-md font-extrabold'
-                      : 'bg-[#121212] text-[#94A3B8] hover:text-white border border-[#262626]'
-                  }`}
-                >
-                  <Tv className="w-3.5 h-3.5" />
-                  TV Series & K-Dramas
-                </button>
-              </div>
-            </div>
-
             {/* Continue Watching Section */}
             {watchHistory.length > 0 && (
-              <section className="my-6 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+              <section className="w-full max-w-[2200px] mx-auto my-6 px-4 sm:px-6 lg:px-10 xl:px-12">
                 <h3 className="text-lg sm:text-xl font-extrabold text-white mb-3">
                   Continue Watching
                 </h3>
@@ -339,7 +355,7 @@ export function App() {
             )}
 
             {/* Dynamic Sections from Config API */}
-            <div className="space-y-2 pb-24 max-w-7xl mx-auto">
+            <div className="space-y-2 pb-6 w-full max-w-[2200px] mx-auto px-2 sm:px-4 lg:px-6 xl:px-8">
               {filteredHomeSections.map((section) => (
                 <MovieRow
                   key={section.id || section.sectionKey}
@@ -353,7 +369,55 @@ export function App() {
                 />
               ))}
             </div>
+
+            {/* Home Page Bottom Footer */}
+            <HomeFooter
+              onNavigateTab={(tab) => {
+                setActiveTab(tab);
+                if (tab !== 'categories') {
+                  setTargetVj(null);
+                  setTargetGenre(null);
+                  setTargetCategoryTitle(null);
+                }
+              }}
+              onSelectVj={(vj) => {
+                setTargetVj(vj);
+                setTargetGenre(null);
+                setTargetCategoryTitle(vj);
+                setActiveTab('categories');
+              }}
+              onSelectGenre={(genre) => {
+                setTargetGenre(genre);
+                setTargetVj(null);
+                setTargetCategoryTitle(genre);
+                setActiveTab('categories');
+              }}
+            />
           </div>
+        )}
+
+        {/* Movies Tab (3-grid view, load more, no filters) */}
+        {activeTab === 'movies' && (
+          <MediaCatalogView
+            type="movie"
+            onSelectMovie={setDetailMovie}
+            onPlayQuick={(m) => setPlayerState({ movie: m })}
+            savedIds={savedIds}
+            onToggleSave={handleToggleSave}
+            cachedPool={allMoviesPool}
+          />
+        )}
+
+        {/* Series Tab (3-grid view, load more, no filters) */}
+        {activeTab === 'series' && (
+          <MediaCatalogView
+            type="series"
+            onSelectMovie={setDetailMovie}
+            onPlayQuick={(m) => setPlayerState({ movie: m })}
+            savedIds={savedIds}
+            onToggleSave={handleToggleSave}
+            cachedPool={allMoviesPool}
+          />
         )}
 
         {/* Categories Tab (VJs & Genres full catalog) */}
@@ -387,7 +451,7 @@ export function App() {
 
         {/* My List / Watchlist Tab */}
         {(activeTab === 'mylist' || activeTab === 'saved') && (
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-28">
+          <div className="w-full max-w-[2200px] mx-auto px-4 sm:px-6 lg:px-10 xl:px-12 py-6 pb-28">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
               <div>
                 <h2 className="text-2xl font-black text-white flex items-center gap-2.5">
@@ -438,7 +502,7 @@ export function App() {
             </div>
 
             {savedMovies.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 md:gap-5">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 3xl:grid-cols-8 gap-3 sm:gap-4 md:gap-5">
                 {savedMovies.map(movie => (
                   <MovieCard
                     key={movie.id}
@@ -473,15 +537,13 @@ export function App() {
       {/* Floating Bottom Navigation for Mobile */}
       <BottomNav
         activeTab={activeTab}
-        onTabChange={(tab) => {
-          setActiveTab(tab);
-          if (tab !== 'categories') {
-            setTargetVj(null);
-            setTargetGenre(null);
-            setTargetCategoryTitle(null);
-          }
-        }}
+        onTabChange={handleTabChange}
         savedCount={savedIds.size}
+        user={user}
+        subscription={subscription}
+        onOpenAuth={() => setShowAuthModal(true)}
+        onOpenProfile={() => setShowProfileModal(true)}
+        onOpenSubscription={() => setShowSubscriptionModal(true)}
       />
 
       {/* Full Movie / Series Fullscreen Detail Screen */}
@@ -498,10 +560,13 @@ export function App() {
           allMovies={allMoviesPool}
           onSelectMovie={(m) => setDetailMovie(m)}
           savedIds={savedIds}
+          isSubscribed={subscription.isSubscribed}
+          onOpenSubscription={() => setShowSubscriptionModal(true)}
+          onOpenContact={(title) => handleOpenContact(title)}
         />
       )}
 
-      {/* High Definition Video Player Modal */}
+      {/* High Definition Video Player Modal (With 3-sec subscription checker) */}
       {playerState && (
         <PlayerModal
           movie={playerState.movie}
@@ -509,8 +574,50 @@ export function App() {
           serverUrl={playerState.serverUrl}
           onClose={() => setPlayerState(null)}
           onSaveProgress={handleSaveProgress}
+          user={user}
+          isSubscribed={subscription.isSubscribed}
+          onOpenSubscription={() => setShowSubscriptionModal(true)}
+          onOpenAuth={() => setShowAuthModal(true)}
         />
       )}
+
+      {/* Authentication Modal (Login / Sign Up / Password Recovery) */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onLoginSuccess={handleLoginSuccess}
+        onOpenSubscription={() => setShowSubscriptionModal(true)}
+      />
+
+      {/* VIP Subscription Modal (Uganda Mobile Money MTN & Airtel Polling) */}
+      <SubscriptionModal
+        isOpen={showSubscriptionModal}
+        onClose={() => setShowSubscriptionModal(false)}
+        user={user}
+        subscription={subscription}
+        onOpenAuth={() => setShowAuthModal(true)}
+        onSubscriptionActivated={handleSubscriptionActivated}
+      />
+
+      {/* User Profile & Membership Modal */}
+      <ProfileModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        user={user}
+        subscription={subscription}
+        onOpenAuth={() => setShowAuthModal(true)}
+        onOpenSubscription={() => setShowSubscriptionModal(true)}
+        onOpenContact={() => handleOpenContact()}
+        onLogout={handleLogout}
+      />
+
+      {/* Contact, Support & Movie Requests Modal */}
+      <ContactModal
+        isOpen={showContactModal}
+        onClose={() => setShowContactModal(false)}
+        user={user}
+        initialSubject={contactInitialSubject}
+      />
     </div>
   );
 }
