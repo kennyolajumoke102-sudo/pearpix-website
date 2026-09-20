@@ -50,8 +50,28 @@ export const CategoriesTab: React.FC<CategoriesTabProps> = ({
     } else if (initialGenre) {
       setSelectedCategory(initialGenre);
       setSelectedTabIndex(1);
+    } else {
+      setSelectedCategory(null);
     }
   }, [initialVj, initialGenre, initialTitle]);
+
+  const selectCategoryWithHistory = (categoryName: string) => {
+    setSelectedCategory(categoryName);
+    try {
+      window.history.pushState({ pearlpix: true, view: 'category', title: categoryName }, '');
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleBack = () => {
+    if (window.history.state?.pearlpix && window.history.state.view === 'category') {
+      window.history.back();
+    } else {
+      setSelectedCategory(null);
+      onClearTarget?.();
+    }
+  };
 
   // Load movies when selectedCategory or contentTypeFilter changes
   useEffect(() => {
@@ -135,10 +155,7 @@ export const CategoriesTab: React.FC<CategoriesTabProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-4 border-b border-[#262626]">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => {
-                setSelectedCategory(null);
-                onClearTarget?.();
-              }}
+              onClick={handleBack}
               className="p-2 rounded-xl bg-[#121212] hover:bg-[#1F1F1F] text-white border border-[#262626] transition-colors cursor-pointer"
               title="Back to Categories"
             >
@@ -301,7 +318,7 @@ export const CategoriesTab: React.FC<CategoriesTabProps> = ({
             {filteredVjs.map((vj) => (
               <button
                 key={vj}
-                onClick={() => setSelectedCategory(vj)}
+                onClick={() => selectCategoryWithHistory(vj)}
                 className="w-full h-16 rounded-xl border border-[#262626] bg-[#121212] hover:bg-[#1F1F1F] hover:border-[#E50914] transition-all flex items-center justify-center p-2 cursor-pointer group shadow-sm text-center"
               >
                 <span className="text-xs sm:text-sm font-bold text-white group-hover:text-[#E50914] truncate">
@@ -322,7 +339,7 @@ export const CategoriesTab: React.FC<CategoriesTabProps> = ({
             {filteredGenres.map((genre) => (
               <button
                 key={genre}
-                onClick={() => setSelectedCategory(genre)}
+                onClick={() => selectCategoryWithHistory(genre)}
                 className="w-full h-16 rounded-xl border border-[#262626] bg-[#121212] hover:bg-[#1F1F1F] hover:border-[#E50914] transition-all flex items-center justify-center p-2 cursor-pointer group shadow-sm text-center"
               >
                 <span className="text-xs sm:text-sm font-bold text-white group-hover:text-[#E50914] truncate">

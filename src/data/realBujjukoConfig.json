@@ -16,7 +16,7 @@
     {
       "id": 1,
       "section_key": "recently_added_movies",
-      "title": "RECENTLY ADDED MOVIES",
+      "title": "LATEST MOVIES",
       "content_type": "movie",
       "source_type": "latest",
       "source_value": null,

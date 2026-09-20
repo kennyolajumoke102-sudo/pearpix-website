@@ -38,7 +38,7 @@ export const HomeFooter: React.FC<HomeFooterProps> = ({
         </div>
 
         {/* Multi-column Navigation Grids */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 sm:gap-10 pb-10 border-b border-[#1F1F1F]">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-8 sm:gap-10 pb-10 border-b border-[#1F1F1F]">
           {/* Column 1: Browse Navigation */}
           <div>
             <h4 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-white mb-4 flex items-center gap-1.5">
@@ -56,18 +56,6 @@ export const HomeFooter: React.FC<HomeFooterProps> = ({
                 >
                   <ChevronRight className="w-3 h-3 text-[#E50914]" />
                   Home
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => {
-                    onNavigateTab('movies');
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                  className="hover:text-white transition-colors text-left cursor-pointer flex items-center gap-1.5"
-                >
-                  <ChevronRight className="w-3 h-3 text-[#E50914]" />
-                  Luganda Movies
                 </button>
               </li>
               <li>
@@ -168,36 +156,6 @@ export const HomeFooter: React.FC<HomeFooterProps> = ({
                   </button>
                 </li>
               ))}
-            </ul>
-          </div>
-
-          {/* Column 4: Platform Features & Experience */}
-          <div>
-            <h4 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-white mb-4 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#E50914]" />
-              Streaming Quality
-            </h4>
-            <ul className="space-y-2.5 text-xs sm:text-sm text-[#94A3B8]">
-              <li className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                <span>Multi-Server High Speed Video</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                <span>Luganda Translated Voiceovers</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                <span>Direct Movie & Episode Downloads</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                <span>Optimized for Low-Bandwidth Data</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                <span>Continuous Resumed Playback</span>
-              </li>
             </ul>
           </div>
         </div>

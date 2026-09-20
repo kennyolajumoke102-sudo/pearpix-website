@@ -333,10 +333,10 @@ export const DetailModal: React.FC<DetailModalProps> = ({
                 <button
                   onClick={() => onOpenContact(movie.title)}
                   className="px-3 py-1.5 rounded-lg bg-[#1F1F1F] hover:bg-[#2A2A2A] text-[#94A3B8] hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-                  title="Request translated voiceover, fix link, or request another episode"
+                  title="Contact PearlPix support team on WhatsApp or Telegram"
                 >
                   <MessageSquare className="w-3.5 h-3.5" />
-                  <span>Request / Report</span>
+                  <span>Contact Support</span>
                 </button>
               )}
             </div>

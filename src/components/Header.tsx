@@ -122,7 +122,7 @@ export const Header: React.FC<HeaderProps> = ({
             }`}
           >
             <MessageSquare className="w-3.5 h-3.5" />
-            <span>Support & Requests</span>
+            <span>Contact & Support</span>
           </button>
         </nav>
 

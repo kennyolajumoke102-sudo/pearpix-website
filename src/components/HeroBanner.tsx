@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Movie } from '../types';
-import { Play, Info, Bookmark, Check, Star, Volume2 } from 'lucide-react';
+import { Play, Check } from 'lucide-react';
 
 interface HeroBannerProps {
   featuredMovies: Movie[];
@@ -32,6 +32,27 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
   const current = featuredMovies[currentIndex];
   const isSaved = savedIds.has(current.id);
 
+  // Parse title and VJ to match "TITLE BY VJ [NAME]" with VJ highlighted in red
+  const rawTitle = current.title.trim();
+  let whitePart = rawTitle;
+  let redPart = '';
+
+  const matchByVj = rawTitle.match(/^(.*?)(?:\s+BY\s+)(VJ\s+[A-Za-z0-9_.-]+.*)$/i);
+  const matchVj = rawTitle.match(/^(.*?)(?:\s+[-–—|:]\s*)?(VJ\s+[A-Za-z0-9_.-]+.*)$/i);
+
+  if (matchByVj) {
+    whitePart = `${matchByVj[1].trim()} BY `;
+    redPart = matchByVj[2].toUpperCase().trim();
+  } else if (matchVj) {
+    whitePart = `${matchVj[1].trim()} BY `;
+    redPart = matchVj[2].toUpperCase().trim();
+  } else if (current.vj) {
+    const cleanVj = current.vj.trim();
+    const vjFormatted = cleanVj.toUpperCase().startsWith('VJ') ? cleanVj.toUpperCase() : `VJ ${cleanVj.toUpperCase()}`;
+    whitePart = `${rawTitle} BY `;
+    redPart = vjFormatted;
+  }
+
   return (
     <div className="relative w-full h-[52vh] sm:h-[62vh] md:h-[70vh] max-h-[720px] overflow-hidden bg-[#000000]">
       {/* Background Backdrop with Gradient Fades */}
@@ -50,90 +71,77 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
       </div>
 
       {/* Content */}
-      <div className="relative h-full w-full max-w-[2200px] mx-auto px-4 sm:px-6 lg:px-10 xl:px-12 flex flex-col justify-end pb-12 sm:pb-16 z-10">
+      <div className="relative h-full w-full max-w-[2200px] mx-auto px-4 sm:px-6 lg:px-10 xl:px-12 flex flex-col justify-end pb-8 sm:pb-12 z-10">
         <div className="max-w-2xl">
-          {/* VJ Pill & Series Badge */}
-          <div className="flex flex-wrap items-center gap-2 mb-2 sm:mb-3">
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-extrabold uppercase bg-[#E50914] text-white tracking-wider shadow">
-              <Volume2 className="w-3.5 h-3.5" />
-              {current.vj}
-            </span>
-            {current.isTvSeries && (
-              <span className="px-2 py-0.5 rounded-full text-xs font-bold uppercase bg-[#FF3B30] text-white shadow">
-                TV Series
-              </span>
-            )}
-            <span className="flex items-center gap-1 text-xs font-bold text-white bg-[#121212]/90 px-2 py-0.5 rounded-full border border-[#262626]">
-              <Star className="w-3 h-3 fill-[#E50914] text-[#E50914]" />
-              {current.rating.toFixed(1)}
-            </span>
-            <span className="text-xs text-[#94A3B8] font-medium">
-              {current.year} • {current.duration}
-            </span>
+          {/* "NEW RELEASE" Red Label */}
+          <div className="text-[#E50914] text-xs sm:text-sm font-bold uppercase tracking-wider mb-2 drop-shadow-sm">
+            NEW RELEASE
           </div>
 
-          {/* Title */}
-          <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-tight drop-shadow-md">
-            {current.title}
+          {/* Title with VJ highlighted in Red */}
+          <h1 
+            onClick={() => onSelect(current)}
+            className="text-2xl sm:text-4xl md:text-5xl font-black tracking-tight leading-tight uppercase drop-shadow-md cursor-pointer hover:opacity-95 transition-opacity mb-4 sm:mb-6"
+          >
+            <span className="text-white">{whitePart.toUpperCase()}</span>
+            {redPart && (
+              <span className="text-[#E50914]">{redPart}</span>
+            )}
           </h1>
 
-          {/* Synopsis */}
-          <p className="mt-2 sm:mt-3 text-xs sm:text-sm md:text-base text-[#CBD5E1] line-clamp-2 sm:line-clamp-3 leading-relaxed drop-shadow max-w-xl">
-            {current.description}
-          </p>
+          {/* Action Buttons & Centered Indicators Wrapper */}
+          <div className="w-fit flex flex-col items-center">
+            {/* Action Buttons as requested */}
+            <div className="flex items-center gap-3">
+              {/* Primary Red "Watch Now" Button */}
+              <button
+                id="hero-watch-btn"
+                onClick={() => onPlay(current)}
+                className="px-6 sm:px-7 py-3 rounded-[12px] bg-[#E50914] hover:bg-[#C40812] text-white font-semibold text-sm sm:text-base flex items-center gap-2.5 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer shadow-lg"
+              >
+                <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-white text-white" />
+                <span>Watch Now</span>
+              </button>
 
-          {/* Action Buttons */}
-          <div className="mt-4 sm:mt-6 flex flex-wrap items-center gap-3">
-            <button
-              id="hero-watch-btn"
-              onClick={() => onPlay(current)}
-              className="px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl bg-[#E50914] hover:bg-[#B80710] text-white font-black text-sm sm:text-base flex items-center gap-2 shadow-lg shadow-[#E50914]/25 transition-all hover:scale-105 active:scale-95 cursor-pointer"
-            >
-              <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
-              Watch Now
-            </button>
+              {/* Secondary Dark "+ My List" Button */}
+              <button
+                id="hero-save-btn"
+                onClick={() => onToggleSave(current)}
+                className="px-6 sm:px-7 py-3 rounded-[12px] bg-[#20222C] hover:bg-[#2A2E3B] border border-[#2F3443] text-white font-semibold text-sm sm:text-base flex items-center gap-2 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer shadow-md"
+              >
+                {isSaved ? (
+                  <>
+                    <Check className="w-4 h-4 sm:w-5 sm:h-5 text-[#E50914]" />
+                    <span>My List</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-base font-bold leading-none">+</span>
+                    <span>My List</span>
+                  </>
+                )}
+              </button>
+            </div>
 
-            <button
-              id="hero-info-btn"
-              onClick={() => onSelect(current)}
-              className="px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-[#1F1F1F]/90 hover:bg-[#2A2A2A] text-white font-semibold text-sm sm:text-base flex items-center gap-2 border border-[#333333] backdrop-blur-sm transition-all cursor-pointer"
-            >
-              <Info className="w-4 h-4 sm:w-5 sm:h-5 text-[#94A3B8]" />
-              Details
-            </button>
-
-            <button
-              id="hero-save-btn"
-              onClick={() => onToggleSave(current)}
-              className="p-2.5 sm:p-3 rounded-xl bg-[#1F1F1F]/90 hover:bg-[#2A2A2A] text-white border border-[#333333] backdrop-blur-sm transition-all cursor-pointer"
-              title={isSaved ? "Remove from My List" : "Add to My List"}
-            >
-              {isSaved ? (
-                <Check className="w-5 h-5 text-[#E50914]" />
-              ) : (
-                <Bookmark className="w-5 h-5" />
-              )}
-            </button>
+            {/* Slide Indicator Dots centered directly under the buttons */}
+            {featuredMovies.length > 1 && (
+              <div className="flex items-center justify-center gap-2 mt-4 sm:mt-5">
+                {featuredMovies.map((_, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setCurrentIndex(idx)}
+                    className={`transition-all duration-300 cursor-pointer ${
+                      idx === currentIndex
+                        ? 'w-8 sm:w-10 h-2 bg-[#E50914] rounded-full'
+                        : 'w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-[#2F3443] hover:bg-[#464D61]'
+                    }`}
+                    aria-label={`Slide ${idx + 1}`}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
-
-        {/* Slide Indicators */}
-        {featuredMovies.length > 1 && (
-          <div className="flex items-center gap-2 mt-6">
-            {featuredMovies.map((_, idx) => (
-              <button
-                key={idx}
-                onClick={() => setCurrentIndex(idx)}
-                className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
-                  idx === currentIndex
-                    ? 'w-7 bg-[#E50914]'
-                    : 'w-2 bg-white/40 hover:bg-white/70'
-                }`}
-                aria-label={`Slide ${idx + 1}`}
-              />
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );

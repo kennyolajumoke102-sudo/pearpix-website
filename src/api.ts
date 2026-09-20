@@ -502,12 +502,17 @@ export async function fetchMovieDetails(id: string): Promise<Movie | null> {
 
 export function sanitizeSectionTitle(rawTitle: string): string {
   if (!rawTitle) return '';
-  return rawTitle
+  let title = rawTitle
     .replace(/\bBUJJUKO\b/gi, 'PEARLPIX')
     .split(/\s+[-:|–—]\s+/)[0]
     .replace(/\s*\([^)]*\)$/, '')
     .replace(/\s+/g, ' ')
     .trim();
+
+  if (title.toUpperCase() === 'RECENTLY ADDED MOVIES') {
+    title = 'LATEST MOVIES';
+  }
+  return title;
 }
 
 export const DEFAULT_HOME_SECTIONS: Array<{
@@ -521,7 +526,11 @@ export const DEFAULT_HOME_SECTIONS: Array<{
   sort_order: number;
   item_limit: number;
 }> = ((realBujjukoConfig as any).sections || [])
-  .filter((s: any) => s.enabled && s.id > 0)
+  .filter((s: any) => {
+    if (!s.enabled || s.id <= 0) return false;
+    const clean = sanitizeSectionTitle(s.title || '').toUpperCase();
+    return s.section_key !== 'trending' && clean !== 'TRENDING';
+  })
   .map((s: any) => ({
     ...s,
     title: sanitizeSectionTitle(s.title || '')
@@ -541,24 +550,23 @@ export async function fetchBujjukoConfigSections(): Promise<typeof DEFAULT_HOME_
         if (data.success && Array.isArray(data.sections) && data.sections.length > 0) {
           const rawSections = data.sections.filter((s: any) => s.enabled && s.id > 0);
           
-          // Map to ensure item_limit is at least 20 and TRENDING is prioritized
-          const normalized = rawSections.map((s: any) => {
-            const cleanTitle = sanitizeSectionTitle(s.title || '');
-            const upperTitle = cleanTitle.toUpperCase();
-            return {
-              ...s,
-              title: cleanTitle,
-              item_limit: Math.max(20, s.item_limit || 20),
-              sort_order: (upperTitle === 'TRENDING' || s.section_key === 'trending') ? 10 : (s.sort_order || 100)
-            };
-          });
+          // Map to ensure item_limit is at least 20 and filter out trending
+          const normalized = rawSections
+            .filter((s: any) => {
+              const cleanTitle = sanitizeSectionTitle(s.title || '').toUpperCase();
+              return s.section_key !== 'trending' && cleanTitle !== 'TRENDING';
+            })
+            .map((s: any) => {
+              const cleanTitle = sanitizeSectionTitle(s.title || '');
+              return {
+                ...s,
+                title: cleanTitle,
+                item_limit: Math.max(20, s.item_limit || 20),
+                sort_order: s.sort_order || 100
+              };
+            });
 
-          // Ensure mandatory sections: TRENDING, WESTERN  SERIES, STEAMY MOVIES
-          const hasTrending = normalized.some((s: any) => (s.title || '').toUpperCase().includes('TRENDING'));
-          if (!hasTrending) {
-            const defaultTrending = DEFAULT_HOME_SECTIONS.find(s => s.section_key === 'trending');
-            if (defaultTrending) normalized.unshift(defaultTrending);
-          }
+          // Ensure mandatory sections: WESTERN SERIES, STEAMY MOVIES
           const hasWestern = normalized.some((s: any) => (s.title || '').toUpperCase().includes('WESTERN'));
           if (!hasWestern) {
             const defaultWestern = DEFAULT_HOME_SECTIONS.find(s => s.section_key === 'western_series');
@@ -959,22 +967,19 @@ export async function fetchHomeSectionsData(): Promise<{ slider: Movie[]; sectio
       await resolveConfiguredItems(allIncludeDefs);
     }
 
-    // 4. Populate each section with authentic movies (excluding Indian movies and Family section as requested)
+    // 4. Populate each section with authentic movies (excluding Indian movies, Family section, and Trending as requested)
     let validSections = configSections
-      .filter(sec => sec.enabled && sec.id > 0 && sec.section_key !== 'indian_movies' && sec.title?.toUpperCase() !== 'INDIAN MOVIES' && sec.section_key !== 'family' && sec.title?.toUpperCase() !== 'FAMILY')
+      .filter(sec => sec.enabled && sec.id > 0 && 
+        sec.section_key !== 'indian_movies' && sec.title?.toUpperCase() !== 'INDIAN MOVIES' && 
+        sec.section_key !== 'family' && sec.title?.toUpperCase() !== 'FAMILY' &&
+        sec.section_key !== 'trending' && sec.title?.toUpperCase() !== 'TRENDING'
+      )
       .map(sec => {
         const title = sanitizeSectionTitle(sec.title || '');
-        const cleanTitle = title.toUpperCase();
-        if (cleanTitle === 'TRENDING' || sec.section_key === 'trending') {
-          return { ...sec, title, sort_order: 1, item_limit: Math.max(20, sec.item_limit || 20) };
-        }
         return { ...sec, title, item_limit: Math.max(20, sec.item_limit || 20) };
       });
 
-    // Ensure TRENDING, WESTERN SERIES, and STEAMY MOVIES are always in the sections
-    if (!validSections.some(s => (s.title || '').toUpperCase().includes('TRENDING'))) {
-      validSections.unshift(DEFAULT_HOME_SECTIONS.find(s => s.section_key === 'trending')!);
-    }
+    // Ensure WESTERN SERIES and STEAMY MOVIES are always in the sections
     if (!validSections.some(s => (s.title || '').toUpperCase().includes('WESTERN'))) {
       validSections.push(DEFAULT_HOME_SECTIONS.find(s => s.section_key === 'western_series')!);
     }
@@ -1050,7 +1055,7 @@ export async function getMoviesByCategory(
     const definitions = await fetchBujjukoConfigSections();
     const lookupTitle =
       normalizedTitle === 'LATEST SERIES' ? 'RECENTLY ADDED SERIES' :
-      (normalizedTitle === 'LATEST ON BUJJUKO' || normalizedTitle === 'LATEST ON BUJJUKO MOVIES' || normalizedTitle === 'LATEST ON PEARLPIX') ? 'RECENTLY ADDED MOVIES' :
+      (normalizedTitle === 'LATEST MOVIES' || normalizedTitle === 'RECENTLY ADDED MOVIES' || normalizedTitle === 'LATEST ON BUJJUKO' || normalizedTitle === 'LATEST ON BUJJUKO MOVIES' || normalizedTitle === 'LATEST ON PEARLPIX') ? 'LATEST MOVIES' :
       cleanTitle;
 
     const exactSection = definitions.find(s => s.enabled && s.title.replace(/\s+/g, ' ').toUpperCase() === normalizedTitle);

@@ -13,15 +13,21 @@ import {
   ArrowRight,
   Info,
   Clock,
-  Send
+  Bookmark,
+  Play,
+  Trash2
 } from 'lucide-react';
-import { PearlUser, PearlSubscription } from '../types';
+import { PearlUser, PearlSubscription, Movie } from '../types';
 import { clearStoredUser } from '../services/pearlAuth';
 
 interface ProfilePageProps {
   onBack: () => void;
   user: PearlUser | null;
   subscription: PearlSubscription;
+  savedMovies?: Movie[];
+  onSelectMovie?: (movie: Movie) => void;
+  onPlayQuick?: (movie: Movie) => void;
+  onToggleSave?: (movie: Movie) => void;
   onNavigateToAuth: () => void;
   onNavigateToSubscription: () => void;
   onNavigateToContact: () => void;
@@ -34,6 +40,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   onBack,
   user,
   subscription,
+  savedMovies = [],
+  onSelectMovie,
+  onPlayQuick,
+  onToggleSave,
   onNavigateToAuth,
   onNavigateToSubscription,
   onNavigateToContact,
@@ -222,6 +232,114 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               )}
             </div>
 
+            {/* My List Section (Horizontal Gridview) */}
+            <div className="p-6 rounded-3xl bg-[#0D0D0D] border border-[#262626] shadow-xl space-y-4">
+              <div className="flex items-center justify-between border-b border-[#1F1F1F] pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-[#E50914]/15 text-[#E50914] flex items-center justify-center">
+                    <Bookmark className="w-5 h-5 fill-current" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm sm:text-base font-black text-white">My Saved List</h2>
+                    <p className="text-[11px] text-[#94A3B8]">
+                      {savedMovies.length > 0 
+                        ? `${savedMovies.length} bookmarked title${savedMovies.length > 1 ? 's' : ''}` 
+                        : 'Quick access to your bookmarked movies and series'}
+                    </p>
+                  </div>
+                </div>
+                {savedMovies.length > 0 && (
+                  <span className="px-2.5 py-0.5 rounded-full bg-[#E50914] text-white text-[11px] font-black">
+                    {savedMovies.length}
+                  </span>
+                )}
+              </div>
+
+              {savedMovies.length > 0 ? (
+                <div className="relative">
+                  <div className="flex gap-3 overflow-x-auto pb-2 pt-1 scrollbar-none snap-x -mx-1 px-1">
+                    {savedMovies.map((movie) => (
+                      <div
+                        key={movie.id}
+                        className="group relative flex-shrink-0 w-28 sm:w-32 bg-[#141414] rounded-xl overflow-hidden border border-[#262626] hover:border-[#E50914] transition-all flex flex-col snap-start"
+                      >
+                        {/* Poster */}
+                        <div 
+                          className="relative aspect-[2/3] w-full overflow-hidden bg-[#1F1F1F] cursor-pointer"
+                          onClick={() => onSelectMovie?.(movie)}
+                        >
+                          <img
+                            src={movie.posterUrl}
+                            alt={movie.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            loading="lazy"
+                            referrerPolicy="no-referrer"
+                          />
+                          
+                          {/* VJ Tag */}
+                          {movie.vj && (
+                            <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/80 backdrop-blur-sm text-[9px] font-black text-[#E50914] uppercase tracking-wider border border-[#E50914]/40">
+                              {movie.vj}
+                            </div>
+                          )}
+
+                          {/* Quick Play Hover / Touch Action */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onPlayQuick?.(movie);
+                            }}
+                            className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+                            title="Watch Now"
+                          >
+                            <div className="w-9 h-9 rounded-full bg-[#E50914] text-white flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform">
+                              <Play className="w-4 h-4 fill-current ml-0.5" />
+                            </div>
+                          </button>
+
+                          {/* Remove from Saved Bookmark Button */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onToggleSave?.(movie);
+                            }}
+                            className="absolute top-1.5 right-1.5 p-1 rounded-md bg-black/75 hover:bg-[#E50914] text-white transition-colors cursor-pointer"
+                            title="Remove from My List"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        {/* Title & Info */}
+                        <div 
+                          className="p-2 flex-1 flex flex-col justify-between cursor-pointer"
+                          onClick={() => onSelectMovie?.(movie)}
+                        >
+                          <h3 className="text-xs font-bold text-white line-clamp-1 group-hover:text-[#E50914] transition-colors">
+                            {movie.title}
+                          </h3>
+                          <div className="flex items-center justify-between text-[10px] text-[#94A3B8] mt-1">
+                            <span>{movie.year || ''}</span>
+                            <span className="text-[9px] px-1 py-0.2 rounded bg-[#262626] font-semibold text-neutral-300">
+                              {movie.isTvSeries ? 'SERIES' : 'MOVIE'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="py-8 text-center bg-[#141414]/50 rounded-2xl border border-dashed border-[#262626] p-4">
+                  <Bookmark className="w-8 h-8 text-[#64748B] mx-auto mb-2 opacity-50" />
+                  <p className="text-xs font-semibold text-white">No saved movies yet</p>
+                  <p className="text-[11px] text-[#94A3B8] mt-0.5">
+                    Tap the bookmark icon on any movie or series while browsing to save it here.
+                  </p>
+                </div>
+              )}
+            </div>
+
             {/* Quick Actions & Community Services (from old site) */}
             <div className="p-6 rounded-3xl bg-[#0D0D0D] border border-[#262626] shadow-xl space-y-3">
               <h2 className="text-sm font-black text-white mb-3 flex items-center gap-2">
@@ -234,25 +352,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   onClick={onNavigateToContact}
                   className="p-3.5 rounded-2xl bg-[#141414] hover:bg-[#1A1A1A] border border-[#262626] flex items-center gap-3 transition-colors text-left cursor-pointer group"
                 >
-                  <div className="w-9 h-9 rounded-xl bg-blue-500/15 text-blue-400 flex items-center justify-center flex-shrink-0">
-                    <Send className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-white group-hover:text-[#E50914] transition-colors">Request a Movie / Series</div>
-                    <div className="text-[10px] text-[#64748B]">Ask VJ to translate your requested title</div>
-                  </div>
-                </button>
-
-                <button
-                  onClick={onNavigateToContact}
-                  className="p-3.5 rounded-2xl bg-[#141414] hover:bg-[#1A1A1A] border border-[#262626] flex items-center gap-3 transition-colors text-left cursor-pointer group"
-                >
                   <div className="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center flex-shrink-0">
                     <MessageSquare className="w-4 h-4" />
                   </div>
                   <div>
-                    <div className="text-xs font-bold text-white group-hover:text-[#E50914] transition-colors">Contact & WhatsApp Support</div>
-                    <div className="text-[10px] text-[#64748B]">Official Telegram & WhatsApp channels</div>
+                    <div className="text-xs font-bold text-white group-hover:text-[#E50914] transition-colors">Contact Support Desk</div>
+                    <div className="text-[10px] text-[#64748B]">Official WhatsApp, Telegram & Phone</div>
                   </div>
                 </button>
 

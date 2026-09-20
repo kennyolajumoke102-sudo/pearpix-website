@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Movie, Episode, WatchHistoryItem, HomeSection, PearlUser, PearlSubscription } from './types';
 import { fetchHomeSectionsData, FALLBACK_MOVIES } from './api';
 import { pearlGetSavedUser, pearlGetSavedSubscription, pearlLogout } from './services/pearlAuth';
@@ -185,11 +185,22 @@ export function App() {
     setTargetVj(null);
     setTargetGenre(null);
     setActiveTab('categories');
+    try {
+      window.history.pushState({ pearlpix: true, view: 'category', title: section.title }, '');
+    } catch {
+      // ignore
+    }
   };
 
-  // Filter non-empty home sections
+  // Filter non-empty home sections (excluding TRENDING section as requested)
   const filteredHomeSections = useMemo(() => {
-    return homeSections.filter(sec => sec.movies && sec.movies.length > 0);
+    return homeSections.filter(sec => {
+      if (!sec.movies || sec.movies.length === 0) return false;
+      const upperTitle = (sec.title || '').trim().toUpperCase();
+      const secKey = (sec.sectionKey || '').trim().toLowerCase();
+      if (upperTitle === 'TRENDING' || secKey === 'trending') return false;
+      return true;
+    });
   }, [homeSections]);
 
   // Compute all saved movie objects (from cache map + pooled movies)
@@ -217,6 +228,118 @@ export function App() {
     return list;
   }, [savedIds, savedMoviesMap, allMoviesPool, myListFilter]);
 
+  // Refs for tracking navigation and modal states in popstate listener
+  const playerStateRef = useRef(playerState);
+  playerStateRef.current = playerState;
+
+  const detailMovieRef = useRef(detailMovie);
+  detailMovieRef.current = detailMovie;
+
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
+
+  const targetCategoryRef = useRef(targetCategoryTitle || targetVj || targetGenre);
+  targetCategoryRef.current = targetCategoryTitle || targetVj || targetGenre;
+
+  // History and Backpress Management
+  // Ensures hardware / browser back button navigates in-app,
+  // and only exits / quits the browser when at the home screen root.
+  useEffect(() => {
+    // 1. Mark home as the baseline root entry in browser history
+    if (!window.history.state || !window.history.state.pearlpix) {
+      try {
+        window.history.replaceState({ pearlpix: true, view: 'home' }, '');
+      } catch {
+        // ignore
+      }
+    }
+
+    const handlePopState = (event: PopStateEvent) => {
+      // Priority 1: If player is open, close player and stay on current page
+      if (playerStateRef.current) {
+        setPlayerState(null);
+        return;
+      }
+
+      // Priority 2: If detail screen is open, close detail screen
+      if (detailMovieRef.current) {
+        setDetailMovie(null);
+        return;
+      }
+
+      // Priority 3: If category drilldown is active, return to main category list
+      if (targetCategoryRef.current) {
+        setTargetCategoryTitle(null);
+        setTargetVj(null);
+        setTargetGenre(null);
+        return;
+      }
+
+      // Priority 4: Tab and page navigation
+      const state = event.state;
+      if (state && state.pearlpix) {
+        if (state.view === 'home') {
+          setActiveTab('home');
+          setAuthNotice(undefined);
+        } else if ((state.view === 'tab' || state.view === 'page') && state.tab) {
+          setActiveTab(state.tab);
+        } else {
+          setActiveTab('home');
+        }
+      } else {
+        // If reached base history without a subview state, return to home
+        if (activeTabRef.current !== 'home') {
+          setActiveTab('home');
+          setAuthNotice(undefined);
+          try {
+            window.history.replaceState({ pearlpix: true, view: 'home' }, '');
+          } catch {
+            // ignore
+          }
+        }
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
+
+  const openDetailMovie = (movie: Movie) => {
+    setDetailMovie(movie);
+    try {
+      window.history.pushState({ pearlpix: true, view: 'detail', id: movie.id }, '');
+    } catch {
+      // ignore
+    }
+  };
+
+  const closeDetailMovie = () => {
+    if (window.history.state?.pearlpix && window.history.state.view === 'detail') {
+      window.history.back();
+    } else {
+      setDetailMovie(null);
+    }
+  };
+
+  const openPlayer = (movie: Movie, episode?: Episode, serverUrl?: string) => {
+    setPlayerState({ movie, episode, serverUrl });
+    try {
+      window.history.pushState({ pearlpix: true, view: 'player' }, '');
+    } catch {
+      // ignore
+    }
+  };
+
+  const closePlayer = () => {
+    if (window.history.state?.pearlpix && window.history.state.view === 'player') {
+      window.history.back();
+    } else {
+      setPlayerState(null);
+    }
+  };
+
   // Auth & Subscription Page Navigation Handlers
   const navigateToPage = (pageTab: string, notice?: string) => {
     const browseTabs = ['home', 'movies', 'series', 'categories', 'mylist', 'search'];
@@ -225,13 +348,22 @@ export function App() {
     }
     setAuthNotice(notice);
     setActiveTab(pageTab);
+    try {
+      window.history.pushState({ pearlpix: true, view: 'page', tab: pageTab }, '');
+    } catch {
+      // ignore
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleGoBack = () => {
-    setActiveTab(previousTab || 'home');
-    setAuthNotice(undefined);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (window.history.state?.pearlpix && window.history.state.view !== 'home') {
+      window.history.back();
+    } else {
+      setActiveTab(previousTab || 'home');
+      setAuthNotice(undefined);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   const handleOpenContact = (subject?: string) => {
@@ -256,6 +388,11 @@ export function App() {
     setUser(null);
     setSubscription({ isSubscribed: false });
     setActiveTab('home');
+    try {
+      window.history.replaceState({ pearlpix: true, view: 'home' }, '');
+    } catch {
+      // ignore
+    }
   };
 
   const handleSubscriptionActivated = (newSub: PearlSubscription) => {
@@ -288,7 +425,26 @@ export function App() {
       return;
     }
 
+    if (tab === 'home') {
+      setActiveTab('home');
+      setTargetVj(null);
+      setTargetGenre(null);
+      setTargetCategoryTitle(null);
+      try {
+        window.history.replaceState({ pearlpix: true, view: 'home' }, '');
+      } catch {
+        // ignore
+      }
+      return;
+    }
+
     setActiveTab(tab);
+    try {
+      window.history.pushState({ pearlpix: true, view: 'tab', tab }, '');
+    } catch {
+      // ignore
+    }
+
     if (tab !== 'categories') {
       setTargetVj(null);
       setTargetGenre(null);
@@ -314,6 +470,10 @@ export function App() {
         onBack={handleGoBack}
         user={user}
         subscription={subscription}
+        savedMovies={savedMovies}
+        onSelectMovie={openDetailMovie}
+        onPlayQuick={(m) => openPlayer(m)}
+        onToggleSave={handleToggleSave}
         onNavigateToAuth={() => navigateToPage('auth')}
         onNavigateToSubscription={() => {
           if (!user) navigateToPage('auth', 'Please sign in or register to select a VIP membership.');
@@ -404,8 +564,8 @@ export function App() {
             {/* Hero Slider */}
             <HeroBanner
               featuredMovies={sliderMovies.length > 0 ? sliderMovies : allMoviesPool.slice(0, 4)}
-              onPlay={(m) => setPlayerState({ movie: m })}
-              onSelect={setDetailMovie}
+              onPlay={(m) => openPlayer(m)}
+              onSelect={openDetailMovie}
               savedIds={savedIds}
               onToggleSave={handleToggleSave}
             />
@@ -425,7 +585,7 @@ export function App() {
                         key={item.movieId}
                         onClick={() => {
                           if (matchedMovie) {
-                            setPlayerState({ movie: matchedMovie });
+                            openPlayer(matchedMovie);
                           }
                         }}
                         className="group relative flex-none w-52 sm:w-60 rounded-xl overflow-hidden bg-[#121212] border border-[#262626] cursor-pointer hover:border-[#E50914] transition-all"
@@ -472,8 +632,8 @@ export function App() {
                   key={section.id || section.sectionKey}
                   title={section.title}
                   movies={section.movies}
-                  onSelect={setDetailMovie}
-                  onPlayQuick={(m) => setPlayerState({ movie: m })}
+                  onSelect={openDetailMovie}
+                  onPlayQuick={(m) => openPlayer(m)}
                   savedIds={savedIds}
                   onToggleSave={handleToggleSave}
                   onViewAll={() => handleViewSection(section)}
@@ -511,8 +671,8 @@ export function App() {
         {activeTab === 'movies' && (
           <MediaCatalogView
             type="movie"
-            onSelectMovie={setDetailMovie}
-            onPlayQuick={(m) => setPlayerState({ movie: m })}
+            onSelectMovie={openDetailMovie}
+            onPlayQuick={(m) => openPlayer(m)}
             savedIds={savedIds}
             onToggleSave={handleToggleSave}
             cachedPool={allMoviesPool}
@@ -523,8 +683,8 @@ export function App() {
         {activeTab === 'series' && (
           <MediaCatalogView
             type="series"
-            onSelectMovie={setDetailMovie}
-            onPlayQuick={(m) => setPlayerState({ movie: m })}
+            onSelectMovie={openDetailMovie}
+            onPlayQuick={(m) => openPlayer(m)}
             savedIds={savedIds}
             onToggleSave={handleToggleSave}
             cachedPool={allMoviesPool}
@@ -534,8 +694,8 @@ export function App() {
         {/* Categories Tab (VJs & Genres full catalog) */}
         {activeTab === 'categories' && (
           <CategoriesTab
-            onSelectMovie={setDetailMovie}
-            onPlayQuick={(m) => setPlayerState({ movie: m })}
+            onSelectMovie={openDetailMovie}
+            onPlayQuick={(m) => openPlayer(m)}
             savedIds={savedIds}
             onToggleSave={handleToggleSave}
             initialVj={targetVj}
@@ -553,8 +713,8 @@ export function App() {
         {activeTab === 'search' && (
           <SearchTab
             movies={allMoviesPool}
-            onSelectMovie={setDetailMovie}
-            onPlayQuick={(m) => setPlayerState({ movie: m })}
+            onSelectMovie={openDetailMovie}
+            onPlayQuick={(m) => openPlayer(m)}
             savedIds={savedIds}
             onToggleSave={handleToggleSave}
           />
@@ -619,8 +779,8 @@ export function App() {
                     key={movie.id}
                     movie={movie}
                     className="w-full"
-                    onSelect={setDetailMovie}
-                    onPlayQuick={(m) => setPlayerState({ movie: m })}
+                    onSelect={openDetailMovie}
+                    onPlayQuick={(m) => openPlayer(m)}
                     isSaved={true}
                     onToggleSave={handleToggleSave}
                   />
@@ -662,15 +822,15 @@ export function App() {
       {detailMovie && (
         <DetailModal
           movie={detailMovie}
-          onClose={() => setDetailMovie(null)}
+          onClose={closeDetailMovie}
           onPlay={(m, ep) => {
             setDetailMovie(null);
-            setPlayerState({ movie: m, episode: ep });
+            openPlayer(m, ep);
           }}
           isSaved={savedIds.has(detailMovie.id)}
           onToggleSave={handleToggleSave}
           allMovies={allMoviesPool}
-          onSelectMovie={(m) => setDetailMovie(m)}
+          onSelectMovie={openDetailMovie}
           savedIds={savedIds}
           isSubscribed={subscription.isSubscribed}
           onOpenSubscription={() => {
@@ -687,16 +847,16 @@ export function App() {
           movie={playerState.movie}
           episode={playerState.episode}
           serverUrl={playerState.serverUrl}
-          onClose={() => setPlayerState(null)}
+          onClose={closePlayer}
           onSaveProgress={handleSaveProgress}
           user={user}
           isSubscribed={subscription.isSubscribed}
           onOpenSubscription={() => {
-            setPlayerState(null);
+            closePlayer();
             navigateToPage('subscription');
           }}
           onOpenAuth={() => {
-            setPlayerState(null);
+            closePlayer();
             navigateToPage('auth', 'Free users can preview for 3 seconds. Please sign in or register to unlock full streaming.');
           }}
         />

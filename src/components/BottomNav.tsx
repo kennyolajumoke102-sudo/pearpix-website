@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Film, Tv, User, Bookmark } from 'lucide-react';
+import { Home, Film, Tv, User, SlidersHorizontal } from 'lucide-react';
 import { PearlUser } from '../types';
 
 interface BottomNavProps {
@@ -14,7 +14,6 @@ interface BottomNavProps {
 export const BottomNav: React.FC<BottomNavProps> = ({
   activeTab,
   onTabChange,
-  savedCount = 0,
   user,
   onOpenAuth,
   onOpenProfile
@@ -63,23 +62,16 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           </span>
         </button>
 
-        {/* My List */}
+        {/* Filter (Categories) */}
         <button
-          onClick={() => onTabChange('mylist')}
+          onClick={() => onTabChange('categories')}
           className={`relative flex flex-col items-center justify-center flex-1 py-1 transition-colors cursor-pointer ${
-            activeTab === 'mylist' ? 'text-[#E50914]' : 'text-[#94A3B8] hover:text-white'
+            activeTab === 'categories' ? 'text-[#E50914]' : 'text-[#94A3B8] hover:text-white'
           }`}
         >
-          <div className="relative">
-            <Bookmark className={`w-5 h-5 ${activeTab === 'mylist' ? 'fill-current text-[#E50914]' : 'stroke-2'}`} />
-            {savedCount > 0 && (
-              <span className="absolute -top-1.5 -right-2 min-w-[14px] h-[14px] px-0.5 rounded-full bg-[#E50914] text-white text-[9px] font-black flex items-center justify-center leading-none">
-                {savedCount > 99 ? '99+' : savedCount}
-              </span>
-            )}
-          </div>
-          <span className={`text-[10px] font-semibold tracking-tight mt-1 ${activeTab === 'mylist' ? 'font-bold text-[#E50914]' : ''}`}>
-            My List
+          <SlidersHorizontal className={`w-5 h-5 ${activeTab === 'categories' ? 'stroke-[2.5]' : 'stroke-2'}`} />
+          <span className={`text-[10px] font-semibold tracking-tight mt-1 ${activeTab === 'categories' ? 'font-bold text-[#E50914]' : ''}`}>
+            Filter
           </span>
         </button>
 
