@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Movie } from '../types';
-import { Play, Check } from 'lucide-react';
+import { Play, Plus, Check, Star } from 'lucide-react';
 
 interface HeroBannerProps {
   featuredMovies: Movie[];
@@ -23,7 +23,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
     if (featuredMovies.length <= 1) return;
     const interval = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % featuredMovies.length);
-    }, 8000);
+    }, 7000);
     return () => clearInterval(interval);
   }, [featuredMovies.length]);
 
@@ -32,82 +32,103 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
   const current = featuredMovies[currentIndex];
   const isSaved = savedIds.has(current.id);
 
-  // Parse title and VJ to match "TITLE BY VJ [NAME]" with VJ highlighted in red
-  const rawTitle = current.title.trim();
-  let whitePart = rawTitle;
-  let redPart = '';
-
-  const matchByVj = rawTitle.match(/^(.*?)(?:\s+BY\s+)(VJ\s+[A-Za-z0-9_.-]+.*)$/i);
-  const matchVj = rawTitle.match(/^(.*?)(?:\s+[-–—|:]\s*)?(VJ\s+[A-Za-z0-9_.-]+.*)$/i);
-
-  if (matchByVj) {
-    whitePart = `${matchByVj[1].trim()} BY `;
-    redPart = matchByVj[2].toUpperCase().trim();
-  } else if (matchVj) {
-    whitePart = `${matchVj[1].trim()} BY `;
-    redPart = matchVj[2].toUpperCase().trim();
-  } else if (current.vj) {
-    const cleanVj = current.vj.trim();
-    const vjFormatted = cleanVj.toUpperCase().startsWith('VJ') ? cleanVj.toUpperCase() : `VJ ${cleanVj.toUpperCase()}`;
-    whitePart = `${rawTitle} BY `;
-    redPart = vjFormatted;
-  }
+  // Parse title display and metadata
+  const rawTitle = (current.title || 'Featured Movie').trim();
+  const ratingValue = current.rating ? `${current.rating.toFixed(1)}/10` : '7.8/10';
+  const yearValue = current.year || '2024';
+  const genreValue = current.genre ? current.genre.split(',')[0].trim() : 'Action';
+  const durationValue = current.duration || (current.isTvSeries ? 'TV Series' : '1h 52m');
+  const descriptionText = current.description || 'After a devastating attack, a lone hero must fight against impossible odds while uncovering a dark conspiracy with translated commentary.';
 
   return (
-    <div className="relative w-full h-[52vh] sm:h-[62vh] md:h-[70vh] max-h-[720px] overflow-hidden bg-[#000000]">
-      {/* Background Backdrop with Gradient Fades */}
-      <div className="absolute inset-0">
+    <div className="relative w-full min-h-[460px] sm:min-h-[520px] md:min-h-[580px] lg:h-[620px] xl:h-[660px] overflow-hidden bg-black flex flex-col justify-end -mt-2 sm:-mt-4">
+      {/* Full-bleed Background Backdrop with Localized Fog */}
+      <div className="absolute inset-0 z-0">
         <img
+          key={current.id}
           src={current.backdropUrl || current.posterUrl}
           alt={current.title}
-          className="w-full h-full object-cover object-top transition-opacity duration-700"
+          className="w-full h-full object-cover object-center md:object-right transition-all duration-700 ease-out brightness-105 contrast-[1.03]"
           onError={(e) => {
             (e.target as HTMLImageElement).src = current.posterUrl;
           }}
         />
-        {/* Cinematic Vignette Overlays */}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#000000] via-[#000000]/70 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#000000] via-[#000000]/80 to-transparent w-full md:w-3/4" />
+
+        {/* Localized Dark Fog Gradients (leaves the right side vivid and bright) */}
+        {/* Left text-backing dark fog - tapers off before the right poster subject */}
+        <div className="absolute inset-0 bg-gradient-to-r from-black via-black/80 via-30% md:via-42% to-transparent" />
+        
+        {/* Bottom subtle grounding vignette for smooth transition */}
+        <div className="absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-black via-black/50 to-transparent" />
+
+        {/* Top header protection gradient */}
+        <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/60 to-transparent" />
       </div>
 
-      {/* Content */}
-      <div className="relative h-full w-full max-w-[2200px] mx-auto px-4 sm:px-6 lg:px-10 xl:px-12 flex flex-col justify-end pb-8 sm:pb-12 z-10">
+      {/* Content Container */}
+      <div className="relative z-10 w-full max-w-[2200px] mx-auto px-4 sm:px-8 md:px-12 lg:px-16 pb-8 sm:pb-12 pt-20 flex flex-col justify-end">
         <div className="max-w-2xl">
-          {/* "NEW RELEASE" Red Label */}
-          <div className="text-[#E50914] text-xs sm:text-sm font-bold uppercase tracking-wider mb-2 drop-shadow-sm">
-            NEW RELEASE
+          {/* 1. "NEW RELEASE" Red Pill Badge */}
+          <div className="mb-3.5">
+            <span className="inline-flex items-center px-3.5 py-1 rounded-full bg-[#E50914] text-white text-[10px] sm:text-xs font-black uppercase tracking-wider shadow-lg shadow-[#E50914]/40">
+              NEW RELEASE
+            </span>
           </div>
 
-          {/* Title with VJ highlighted in Red */}
+          {/* 2. Main Title */}
           <h1 
             onClick={() => onSelect(current)}
-            className="text-2xl sm:text-4xl md:text-5xl font-black tracking-tight leading-tight uppercase drop-shadow-md cursor-pointer hover:opacity-95 transition-opacity mb-4 sm:mb-6"
+            className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white uppercase tracking-tight leading-[1.08] mb-3.5 drop-shadow-lg cursor-pointer hover:text-white/90 transition-colors"
           >
-            <span className="text-white">{whitePart.toUpperCase()}</span>
-            {redPart && (
-              <span className="text-[#E50914]">{redPart}</span>
-            )}
+            {rawTitle}
           </h1>
 
-          {/* Action Buttons & Centered Indicators Wrapper */}
-          <div className="w-fit flex flex-col items-center">
-            {/* Action Buttons as requested */}
+          {/* 3. Metadata Row: Star Rating | Year | Genre | Duration */}
+          <div className="flex items-center flex-wrap gap-2 text-xs sm:text-sm text-gray-200 font-medium mb-3.5">
+            <span className="flex items-center gap-1 font-bold text-white">
+              <Star className="w-4 h-4 text-amber-400 fill-amber-400 inline" />
+              <span>{ratingValue}</span>
+            </span>
+            <span className="text-gray-500 font-light mx-1">|</span>
+            <span>{yearValue}</span>
+            <span className="text-gray-500 font-light mx-1">|</span>
+            <span>{genreValue}</span>
+            <span className="text-gray-500 font-light mx-1">|</span>
+            <span>{durationValue}</span>
+            {current.vj && (
+              <>
+                <span className="text-gray-500 font-light mx-1">|</span>
+                <span className="text-[#E50914] font-bold">{current.vj.toUpperCase()}</span>
+              </>
+            )}
+          </div>
+
+          {/* 4. Description / Synopsis */}
+          <p className="text-xs sm:text-sm md:text-base text-gray-300 font-normal leading-relaxed line-clamp-2 sm:line-clamp-3 mb-6 max-w-xl drop-shadow">
+            {descriptionText}
+          </p>
+
+          {/* 5. Bottom Action Buttons & Red Dots Row */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5 pt-1">
+            {/* Action Buttons */}
             <div className="flex items-center gap-3">
-              {/* Primary Red "Watch Now" Button */}
+              {/* Watch Now Button */}
               <button
                 id="hero-watch-btn"
                 onClick={() => onPlay(current)}
-                className="px-6 sm:px-7 py-3 rounded-[12px] bg-[#E50914] hover:bg-[#C40812] text-white font-semibold text-sm sm:text-base flex items-center gap-2.5 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer shadow-lg"
+                style={{ borderRadius: '12px' }}
+                className="px-6 sm:px-8 py-3.5 rounded-[12px] bg-[#E50914] hover:bg-[#C40812] active:scale-95 text-white font-bold text-sm sm:text-base flex items-center gap-2.5 transition-all shadow-xl shadow-[#E50914]/30 cursor-pointer select-none"
               >
                 <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-white text-white" />
                 <span>Watch Now</span>
               </button>
 
-              {/* Secondary Dark "+ My List" Button */}
+              {/* + My List Button */}
               <button
                 id="hero-save-btn"
                 onClick={() => onToggleSave(current)}
-                className="px-6 sm:px-7 py-3 rounded-[12px] bg-[#20222C] hover:bg-[#2A2E3B] border border-[#2F3443] text-white font-semibold text-sm sm:text-base flex items-center gap-2 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer shadow-md"
+                style={{ borderRadius: '12px' }}
+                className="px-6 sm:px-8 py-3.5 rounded-[12px] bg-black/60 hover:bg-white/15 border border-white/20 active:scale-95 text-white font-bold text-sm sm:text-base flex items-center gap-2 transition-all cursor-pointer backdrop-blur-md shadow-lg select-none"
               >
                 {isSaved ? (
                   <>
@@ -116,24 +137,24 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
                   </>
                 ) : (
                   <>
-                    <span className="text-base font-bold leading-none">+</span>
+                    <Plus className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                     <span>My List</span>
                   </>
                 )}
               </button>
             </div>
 
-            {/* Slide Indicator Dots centered directly under the buttons */}
+            {/* 6. Slide Pagination Dots: Red Active Indicator, Centered on Mobile, Right-aligned on Desktop */}
             {featuredMovies.length > 1 && (
-              <div className="flex items-center justify-center gap-2 mt-4 sm:mt-5">
-                {featuredMovies.map((_, idx) => (
+              <div className="flex items-center justify-center sm:justify-end gap-2.5 py-2 w-full sm:w-auto">
+                {featuredMovies.slice(0, 7).map((_, idx) => (
                   <button
                     key={idx}
                     onClick={() => setCurrentIndex(idx)}
                     className={`transition-all duration-300 cursor-pointer ${
                       idx === currentIndex
-                        ? 'w-8 sm:w-10 h-2 bg-[#E50914] rounded-full'
-                        : 'w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-[#2F3443] hover:bg-[#464D61]'
+                        ? 'w-7 h-2 rounded-full bg-[#E50914] shadow-lg shadow-[#E50914]/60'
+                        : 'w-2 h-2 rounded-full bg-white/25 hover:bg-white/50'
                     }`}
                     aria-label={`Slide ${idx + 1}`}
                   />

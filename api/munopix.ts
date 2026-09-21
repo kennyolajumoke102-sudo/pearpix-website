@@ -23,7 +23,7 @@ export default async function handler(req: any, res: any) {
     if (season) queryParams.set('season', String(season));
     if (episode) queryParams.set('episode', String(episode));
 
-    const targetUrl = `http://85.190.254.61/munopix/test.php?${queryParams.toString()}`;
+    const targetUrl = `http://169.58.213.109/pearlpixlite/test.php?${queryParams.toString()}`;
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 9000);

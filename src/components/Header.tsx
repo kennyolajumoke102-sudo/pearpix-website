@@ -34,11 +34,12 @@ export const Header: React.FC<HeaderProps> = ({
           onClick={() => onTabChange('home')}
           className="flex items-center gap-3 cursor-pointer select-none group"
         >
-          <div className="relative w-9 h-9 rounded-xl overflow-hidden bg-[#161616] border border-[#E50914]/40 shadow-md flex items-center justify-center p-1">
+          <div className="relative min-w-[46px] w-[46px] h-[31px] rounded-lg overflow-hidden bg-[#161616] border border-[#E50914]/40 shadow-md flex items-center justify-center p-0.5">
             <img 
               src="/logo.png" 
               alt="PearlPix Logo" 
-              className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-300"
+              style={{ width: '46px', height: '31px' }}
+              className="w-[46px] h-[31px] object-contain group-hover:scale-105 transition-transform duration-300"
               onError={(e) => {
                 (e.target as HTMLImageElement).style.display = 'none';
               }}

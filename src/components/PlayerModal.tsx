@@ -62,6 +62,7 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
 
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isVideoLoading, setIsVideoLoading] = useState<boolean>(true);
+  const [isResolvingStream, setIsResolvingStream] = useState<boolean>(true);
   const [isLandscape, setIsLandscape] = useState<boolean>(false);
   const [isPortrait, setIsPortrait] = useState<boolean>(
     typeof window !== 'undefined' ? window.innerHeight > window.innerWidth : false
@@ -149,6 +150,8 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
   // Update server / video URL whenever currentEpisode or activeMovie changes
   useEffect(() => {
     let isMounted = true;
+    setIsResolvingStream(true);
+    setIsVideoLoading(true);
 
     if (serverUrl) {
       setSelectedServer(serverUrl);
@@ -162,6 +165,7 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
           if (!serverUrl && res.streamUrl) {
             setSelectedServer(res.streamUrl);
           }
+          setIsResolvingStream(false);
         })
         .catch(() => {
           if (!isMounted) return;
@@ -169,7 +173,10 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
             const fallbackUrl = currentEpisode?.videoUrl || activeMovie.videoUrl || activeMovie.servers?.[0]?.url || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
             setSelectedServer(fallbackUrl);
           }
+          setIsResolvingStream(false);
         });
+    } else {
+      setIsResolvingStream(false);
     }
 
     return () => {
@@ -454,13 +461,26 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
         onLoadStart={() => setIsVideoLoading(true)}
         onWaiting={() => setIsVideoLoading(true)}
         onSeeking={() => setIsVideoLoading(true)}
-        onSeeked={() => setIsVideoLoading(false)}
-        onCanPlay={() => setIsVideoLoading(false)}
+        onSeeked={() => {
+          if (videoRef.current && !videoRef.current.paused && videoRef.current.readyState >= 3) {
+            setIsVideoLoading(false);
+          }
+        }}
+        onCanPlay={() => {
+          // Keep loading until video actually starts playing frames
+          if (videoRef.current && !videoRef.current.paused && videoRef.current.currentTime > 0) {
+            setIsVideoLoading(false);
+          }
+        }}
         onPlaying={() => {
           setIsPlaying(true);
           setIsVideoLoading(false);
+          setIsResolvingStream(false);
         }}
-        onError={() => setIsVideoLoading(false)}
+        onError={() => {
+          setIsVideoLoading(false);
+          setIsResolvingStream(false);
+        }}
         onEnded={() => {
           if (hasNextEpisode) {
             handleNextEpisode();
@@ -528,8 +548,8 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
       )}
 
       {/* Video Buffering / Loading Indicator */}
-      {isVideoLoading && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/65 backdrop-blur-[2px] z-30 pointer-events-none transition-all">
+      {(isVideoLoading || isResolvingStream) && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/75 backdrop-blur-[2px] z-30 pointer-events-none transition-all">
           <div className="relative flex items-center justify-center">
             <div className="w-16 h-16 rounded-full border-4 border-[#E50914]/20 border-t-[#E50914] animate-spin" />
             <Loader2 className="w-7 h-7 text-[#E50914] animate-spin absolute" />
@@ -537,7 +557,7 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
           <div className="mt-4 flex items-center gap-2 bg-black/90 px-4 py-1.5 rounded-full border border-white/10 shadow-2xl">
             <span className="w-2 h-2 rounded-full bg-[#E50914] animate-ping" />
             <span className="text-xs sm:text-sm font-extrabold text-white tracking-widest uppercase">
-              Loading Video...
+              {isResolvingStream ? 'Connecting to Stream...' : 'Loading Video...'}
             </span>
           </div>
         </div>

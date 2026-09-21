@@ -148,10 +148,10 @@ export function resolveItemNumericId(movie: Movie): { id: number; isSeries: bool
 const streamApiCache = new Map<string, MunopixApiResponse>();
 
 /**
- * Fetch streaming and download URLs from the Munopix test.php API
+ * Fetch streaming and download URLs from the PearlPixLite test.php API
  * Endpoint:
- * - Movies: https://85.190.254.61/munopix/test.php?type=movie&id=<id>
- * - Series: https://85.190.254.61/munopix/test.php?type=series&id=<id>&season=<season>&episode=<episode>
+ * - Movies: https://169.58.213.109/pearlpixlite/test.php?type=movie&id=<id>
+ * - Series: https://169.58.213.109/pearlpixlite/test.php?type=series&id=<id>&season=<season>&episode=<episode>
  */
 export async function fetchMunopixStream(options: {
   type: 'movie' | 'series';
@@ -175,15 +175,17 @@ export async function fetchMunopixStream(options: {
   // Candidate URLs in order of reliability for local dev, Vercel, and direct connections:
   // 1. Vercel serverless proxy endpoint /api/stream
   // 2. Vercel serverless proxy endpoint /api/munopix
-  // 3. Rewritten proxy /munopix-api
-  // 4. Direct HTTP server IP
+  // 3. Rewritten proxy /pearlpixlite-api
+  // 4. Rewritten proxy /munopix-api
   // 5. Direct HTTPS server IP
+  // 6. Direct HTTP server IP
   const candidateUrls = [
     `/api/stream?${queryParams}`,
     `/api/munopix?${queryParams}`,
-    `/munopix-api/munopix/test.php?${queryParams}`,
-    `http://85.190.254.61/munopix/test.php?${queryParams}`,
-    `https://85.190.254.61/munopix/test.php?${queryParams}`
+    `/pearlpixlite-api/pearlpixlite/test.php?${queryParams}`,
+    `/munopix-api/pearlpixlite/test.php?${queryParams}`,
+    `https://169.58.213.109/pearlpixlite/test.php?${queryParams}`,
+    `http://169.58.213.109/pearlpixlite/test.php?${queryParams}`
   ];
 
   for (const url of candidateUrls) {
@@ -214,7 +216,7 @@ export async function fetchMunopixStream(options: {
 
 /**
  * High-level resolver: given a movie and optional episode,
- * contacts the Munopix API to resolve video_url for streaming and download.
+ * contacts the Munopix / PearlPixLite API to resolve video_url for streaming and download.
  * Falls back gracefully to pre-existing videoUrl if API is unavailable.
  */
 export async function resolveStreamAndDownload(
@@ -233,7 +235,7 @@ export async function resolveStreamAndDownload(
     const q = isSeries
       ? `type=series&id=${idInfo.id}&season=${seasonNum}&episode=${episodeNum}`
       : `type=movie&id=${idInfo.id}`;
-    requestUrl = `https://85.190.254.61/munopix/test.php?${q}`;
+    requestUrl = `https://169.58.213.109/pearlpixlite/test.php?${q}`;
 
     apiResponse = await fetchMunopixStream({
       type: isSeries ? 'series' : 'movie',
@@ -322,7 +324,7 @@ export async function resolveStreamAndDownload(
 
   const defaultEndpoint = `https://api.pearlpix.xyz/v1/${isSeries ? `series/${idInfo?.id || movie.id}/stream` : `movies/${idInfo?.id || movie.id}/stream`}`;
   const defaultRequestUrl = idInfo
-    ? `https://85.190.254.61/munopix/test.php?type=${isSeries ? 'series' : 'movie'}&id=${idInfo.id}`
+    ? `https://169.58.213.109/pearlpixlite/test.php?type=${isSeries ? 'series' : 'movie'}&id=${idInfo.id}`
     : `https://api.pearlpix.xyz/v1/movies/${movie.id}/stream`;
 
   const servers: ServerLink[] = Array.isArray(movie.servers) && movie.servers.length > 0
