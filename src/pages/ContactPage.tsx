@@ -120,7 +120,7 @@ export const ContactPage: React.FC<ContactPageProps> = ({
 
             {/* Direct Phone Support */}
             <a
-              href="tel:+256770705442"
+              href="tel:0705609622"
               className="p-5 rounded-2xl bg-[#0D0D0D] border border-[#262626] hover:border-amber-500/50 hover:bg-[#121212] transition-all group shadow-xl"
             >
               <div className="flex items-center justify-between mb-3">
@@ -136,13 +136,13 @@ export const ContactPage: React.FC<ContactPageProps> = ({
                 Direct phone line during operating hours for customer care across Uganda.
               </p>
               <div className="mt-3 text-xs font-bold text-amber-400">
-                +256 770 705 442 →
+                0705609622 →
               </div>
             </a>
 
             {/* Email Support */}
             <a
-              href="mailto:support@pearlpix.net"
+              href="mailto:Jimtechug@gmail.com"
               className="p-5 rounded-2xl bg-[#0D0D0D] border border-[#262626] hover:border-[#E50914]/50 hover:bg-[#121212] transition-all group shadow-xl"
             >
               <div className="flex items-center justify-between mb-3">
@@ -158,7 +158,7 @@ export const ContactPage: React.FC<ContactPageProps> = ({
                 For billing documentation, technical inquiries, and account assistance.
               </p>
               <div className="mt-3 text-xs font-bold text-[#E50914]">
-                support@pearlpix.net →
+                Jimtechug@gmail.com →
               </div>
             </a>
           </div>

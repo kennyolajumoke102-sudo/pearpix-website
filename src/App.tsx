@@ -4,6 +4,7 @@ import { fetchHomeSectionsData, FALLBACK_MOVIES } from './api';
 import { pearlGetSavedUser, pearlGetSavedSubscription, pearlLogout } from './services/pearlAuth';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
+import { FloatingInstallApkButton } from './components/FloatingInstallApkButton';
 import { HeroBanner } from './components/HeroBanner';
 import { MovieRow } from './components/MovieRow';
 import { MovieCard } from './components/MovieCard';
@@ -809,6 +810,9 @@ export function App() {
           </div>
         )}
       </main>
+
+      {/* Floating Install APK Button for Mobile View */}
+      <FloatingInstallApkButton apkUrl="https://play.google.com/store/apps/details?id=com.uganda.movieshub" />
 
       {/* Floating Bottom Navigation for Mobile */}
       <BottomNav
