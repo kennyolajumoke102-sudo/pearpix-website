@@ -503,14 +503,22 @@ export async function loginOrRegisterWithGoogle(profile: {
     if (String(item?.success) === '1' || item?.user_id) {
       const loginRes = await loginWithPearl(email, generatedPassword);
       if (loginRes.success && loginRes.user) {
-        return { success: true, user: loginRes.user };
+        const googleUser: PearlUser = {
+          ...loginRes.user,
+          authProvider: 'google',
+          isGoogleUser: true
+        };
+        saveStoredUser(googleUser);
+        return { success: true, user: googleUser };
       }
 
       const user: PearlUser = {
         isLogin: true,
         userId: String(item.user_id || 'usr_' + Date.now()),
         name: rawName,
-        email: email
+        email: email,
+        authProvider: 'google',
+        isGoogleUser: true
       };
       saveStoredUser(user);
       return { success: true, user };
@@ -520,7 +528,13 @@ export async function loginOrRegisterWithGoogle(profile: {
     // Automatically attempt login with the deterministic Google password formula
     const loginRes = await loginWithPearl(email, generatedPassword);
     if (loginRes.success && loginRes.user) {
-      return { success: true, user: loginRes.user };
+      const googleUser: PearlUser = {
+        ...loginRes.user,
+        authProvider: 'google',
+        isGoogleUser: true
+      };
+      saveStoredUser(googleUser);
+      return { success: true, user: googleUser };
     }
 
     // Case C: Login with generated Google password failed

@@ -110,6 +110,8 @@ export interface PearlUser {
   email: string;
   phone?: string;
   session?: string;
+  authProvider?: 'google' | 'pearl' | 'email';
+  isGoogleUser?: boolean;
   createdAt?: string | number;
 }
 

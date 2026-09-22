@@ -376,8 +376,19 @@ export function App() {
     setUser(newUser);
     const sub = pearlGetSavedSubscription();
     setSubscription(sub);
-    // Return directly to the user's previous view on login
-    handleGoBack();
+    setAuthNotice(undefined);
+    // Return safely to destination or home without risking closing the window/tab
+    if (previousTab && previousTab !== 'auth') {
+      setActiveTab(previousTab);
+    } else {
+      setActiveTab('home');
+    }
+    try {
+      window.history.replaceState({ pearlpix: true, view: 'home' }, '');
+    } catch {
+      // ignore
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleLogout = () => {

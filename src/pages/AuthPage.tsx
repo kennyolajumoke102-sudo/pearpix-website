@@ -156,7 +156,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         setSuccessMsg(`Welcome back, ${res.user.name}!`);
         setTimeout(() => {
           onLoginSuccess(res.user!);
-          onBack();
         }, 500);
       } else {
         setErrorMsg(res.message || 'Google sign-in could not be completed. Please try again.');
@@ -295,7 +294,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         setSuccessMsg('Account created successfully! Welcome to PearlPix.');
         setTimeout(() => {
           onLoginSuccess(res.user!);
-          onBack();
         }, 500);
       } else {
         setErrorMsg(res.message || 'Signup failed. Please try again.');
@@ -310,7 +308,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         setSuccessMsg(`Welcome back, ${res.user.name}!`);
         setTimeout(() => {
           onLoginSuccess(res.user!);
-          onBack();
         }, 500);
       } else {
         setErrorMsg(res.message || 'Login failed. Please check your credentials.');
