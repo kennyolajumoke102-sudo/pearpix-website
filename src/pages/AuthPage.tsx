@@ -77,7 +77,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
   const hiddenGsiBtnRef = useRef<HTMLDivElement>(null);
 
-  const GOOGLE_CLIENT_ID = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || '214492626210-fo3le4dh3aj939ut94hi6h9r79j1mjma.apps.googleusercontent.com';
+  const GOOGLE_CLIENT_ID = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || '137958708754-g8hl5d0odndg1fmve9oajok83m1m0gli.apps.googleusercontent.com';
 
   // Initialize Google Identity Services (GSI)
   useEffect(() => {
