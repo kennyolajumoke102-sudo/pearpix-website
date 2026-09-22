@@ -11,8 +11,7 @@ import {
   Loader2, 
   Sparkles,
   ArrowRight,
-  Film,
-  X
+  Film
 } from 'lucide-react';
 import { 
   loginWithPearl, 
@@ -76,16 +75,11 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Fallback Google account chooser modal
-  const [showGoogleModal, setShowGoogleModal] = useState(false);
-  const [googleEmailInput, setGoogleEmailInput] = useState('');
-  const [googleNameInput, setGoogleNameInput] = useState('');
+  const hiddenGsiBtnRef = useRef<HTMLDivElement>(null);
 
-  const googleBtnContainerRef = useRef<HTMLDivElement>(null);
-
-  // Initialize Google Identity Services (GSI) if available
   const GOOGLE_CLIENT_ID = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || '214492626210-fo3le4dh3aj939ut94hi6h9r79j1mjma.apps.googleusercontent.com';
 
+  // Initialize Google Identity Services (GSI)
   useEffect(() => {
     const initGsi = () => {
       if (window.google?.accounts?.id) {
@@ -97,18 +91,18 @@ export const AuthPage: React.FC<AuthPageProps> = ({
             cancel_on_tap_outside: true
           });
 
-          if (googleBtnContainerRef.current) {
-            window.google.accounts.id.renderButton(googleBtnContainerRef.current, {
-              theme: 'filled_black',
-              size: 'large',
-              width: 320,
+          // Render a hidden Google Button so we can also trigger native click if needed
+          if (hiddenGsiBtnRef.current) {
+            hiddenGsiBtnRef.current.innerHTML = '';
+            window.google.accounts.id.renderButton(hiddenGsiBtnRef.current, {
               type: 'standard',
-              shape: 'rectangular',
-              text: 'continue_with'
+              theme: 'outline',
+              size: 'large',
+              width: 280
             });
           }
         } catch (e) {
-          console.warn('GSI init note:', e);
+          console.warn('GSI init notice:', e);
         }
       }
     };
@@ -116,19 +110,21 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     if (window.google?.accounts?.id) {
       initGsi();
     } else {
-      const timer = setTimeout(initGsi, 1000);
+      const timer = setTimeout(initGsi, 800);
       return () => clearTimeout(timer);
     }
   }, [GOOGLE_CLIENT_ID]);
 
   const handleGoogleCredentialResponse = async (response: any) => {
     if (!response?.credential) {
+      setGoogleLoading(false);
       setErrorMsg('Could not receive Google credentials. Please try again.');
       return;
     }
 
     const profile = parseGoogleJwt(response.credential);
     if (!profile || !profile.email) {
+      setGoogleLoading(false);
       setErrorMsg('Unable to retrieve your Google profile details.');
       return;
     }
@@ -146,63 +142,74 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     setSuccessMsg(null);
     setGoogleLoading(true);
 
-    const res = await loginOrRegisterWithGoogle({
-      name: gName,
-      email: gEmail,
-      sub,
-      picture
-    });
+    try {
+      const res = await loginOrRegisterWithGoogle({
+        name: gName,
+        email: gEmail,
+        sub,
+        picture
+      });
 
-    setGoogleLoading(false);
-    setShowGoogleModal(false);
+      setGoogleLoading(false);
 
-    if (res.success && res.user) {
-      setSuccessMsg(`Welcome back, ${res.user.name}!`);
-      setTimeout(() => {
-        onLoginSuccess(res.user!);
-        onBack();
-      }, 500);
-    } else {
-      setErrorMsg(res.message || 'Google sign-in could not be completed. Please try again.');
+      if (res.success && res.user) {
+        setSuccessMsg(`Welcome back, ${res.user.name}!`);
+        setTimeout(() => {
+          onLoginSuccess(res.user!);
+          onBack();
+        }, 500);
+      } else {
+        setErrorMsg(res.message || 'Google sign-in could not be completed. Please try again.');
+      }
+    } catch (err: any) {
+      setGoogleLoading(false);
+      setErrorMsg(err?.message || 'Authentication failed. Please try again.');
     }
   };
 
   const handleContinueWithGoogleClick = () => {
     setErrorMsg(null);
     setSuccessMsg(null);
+    setGoogleLoading(true);
 
     if (window.google?.accounts?.id) {
       try {
         window.google.accounts.id.initialize({
           client_id: GOOGLE_CLIENT_ID,
           callback: handleGoogleCredentialResponse,
-          auto_select: false
+          auto_select: false,
+          cancel_on_tap_outside: true
         });
 
+        // Prompt Google Account Chooser
         window.google.accounts.id.prompt((notification: any) => {
-          // If One Tap is blocked or not displayed (e.g. cross-origin iframe), open the fallback modal
-          if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-            setShowGoogleModal(true);
+          if (notification.isNotDisplayed()) {
+            // Attempt to trigger the native rendered button if available
+            const nativeBtn = hiddenGsiBtnRef.current?.querySelector('div[role="button"]') as HTMLElement;
+            if (nativeBtn) {
+              nativeBtn.click();
+            } else {
+              setGoogleLoading(false);
+              setErrorMsg('Google Sign-In prompt could not be opened. Please ensure your domain is added to Authorized JavaScript Origins in Google Cloud.');
+            }
+          } else if (notification.isSkippedMoment() || notification.isDismissedMoment()) {
+            setGoogleLoading(false);
           }
         });
         return;
-      } catch (e) {
-        console.warn('GSI prompt fallback:', e);
+      } catch (e: any) {
+        console.warn('GSI prompt error:', e);
+        setGoogleLoading(false);
+        setErrorMsg('Failed to initialize Google Sign-In: ' + (e?.message || 'Please try again.'));
+        return;
       }
     }
 
-    // Fallback if GSI script is blocked or in sandbox environment
-    setShowGoogleModal(true);
-  };
-
-  const handleGoogleModalSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!googleEmailInput || !googleEmailInput.includes('@')) {
-      setErrorMsg('Please enter a valid Google email address.');
-      return;
-    }
-    const finalName = googleNameInput.trim() || googleEmailInput.split('@')[0];
-    await executeGoogleAuth(finalName, googleEmailInput.trim());
+    // Google script not ready yet
+    setTimeout(() => {
+      setGoogleLoading(false);
+      setErrorMsg('Google Sign-In is initializing. Please tap again in a moment.');
+    }, 1500);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -364,19 +371,20 @@ export const AuthPage: React.FC<AuthPageProps> = ({
             </div>
           )}
 
-          {/* 1. GOOGLE SIGN-IN BUTTON */}
+          {/* 1. GOOGLE SIGN-IN BUTTON WITH ACTIVE LOADING STATE */}
           {mode !== 'reset' && (
             <div className="mb-5 space-y-3">
               <button
                 type="button"
+                id="google-login-btn"
                 onClick={handleContinueWithGoogleClick}
                 disabled={googleLoading || loading}
-                className="w-full py-3 px-4 rounded-xl bg-white hover:bg-gray-100 text-gray-900 font-bold text-xs sm:text-sm flex items-center justify-center gap-3 transition-all shadow-md active:scale-[0.98] cursor-pointer disabled:opacity-60 select-none border border-white"
+                className="w-full py-3 px-4 rounded-xl bg-white hover:bg-gray-100 active:bg-gray-200 text-gray-900 font-bold text-xs sm:text-sm flex items-center justify-center gap-3 transition-all shadow-md active:scale-[0.98] cursor-pointer disabled:opacity-75 select-none border border-white"
               >
                 {googleLoading ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin text-gray-800" />
-                    <span>Connecting to Google...</span>
+                    <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin text-[#4285F4]" />
+                    <span className="text-gray-800 font-bold">Connecting to Google...</span>
                   </>
                 ) : (
                   <>
@@ -386,8 +394,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
                 )}
               </button>
 
-              {/* Hidden container if GSI renders button */}
-              <div ref={googleBtnContainerRef} className="hidden" />
+              {/* Hidden container for Google GSI DOM rendering */}
+              <div ref={hiddenGsiBtnRef} className="hidden" aria-hidden="true" />
 
               {/* Divider */}
               <div className="relative flex items-center justify-center pt-2">
@@ -535,77 +543,6 @@ export const AuthPage: React.FC<AuthPageProps> = ({
           </div>
         </div>
       </main>
-
-      {/* Fallback Google Account Selection Modal */}
-      {showGoogleModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-sm bg-[#121212] border border-[#262626] rounded-2xl p-6 shadow-2xl relative animate-in zoom-in-95 duration-200">
-            <button
-              onClick={() => setShowGoogleModal(false)}
-              className="absolute top-4 right-4 text-[#94A3B8] hover:text-white p-1 rounded-lg"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow">
-                <GoogleGIcon />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-white">Google Account Sign-In</h3>
-                <p className="text-[11px] text-[#94A3B8]">Sign in with your Google account</p>
-              </div>
-            </div>
-
-            <form onSubmit={handleGoogleModalSubmit} className="space-y-3.5">
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] mb-1">
-                  Google Email
-                </label>
-                <input
-                  type="email"
-                  value={googleEmailInput}
-                  onChange={(e) => setGoogleEmailInput(e.target.value)}
-                  placeholder="your.email@gmail.com"
-                  required
-                  autoFocus
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#1A1A1A] border border-[#333] text-white text-xs placeholder:text-gray-500 focus:outline-none focus:border-[#4285F4]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] mb-1">
-                  Display Name (Optional)
-                </label>
-                <input
-                  type="text"
-                  value={googleNameInput}
-                  onChange={(e) => setGoogleNameInput(e.target.value)}
-                  placeholder="Your Name"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#1A1A1A] border border-[#333] text-white text-xs placeholder:text-gray-500 focus:outline-none focus:border-[#4285F4]"
-                />
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  disabled={googleLoading}
-                  className="w-full py-2.5 rounded-xl bg-[#4285F4] hover:bg-[#3367D6] text-white font-bold text-xs uppercase tracking-wider shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-                >
-                  {googleLoading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Signing In...</span>
-                    </>
-                  ) : (
-                    <span>Continue with this account</span>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
