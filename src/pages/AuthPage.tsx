@@ -84,13 +84,14 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   const googleBtnContainerRef = useRef<HTMLDivElement>(null);
 
   // Initialize Google Identity Services (GSI) if available
+  const GOOGLE_CLIENT_ID = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || '214492626210-fo3le4dh3aj939ut94hi6h9r79j1mjma.apps.googleusercontent.com';
+
   useEffect(() => {
     const initGsi = () => {
       if (window.google?.accounts?.id) {
         try {
-          const clientId = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || '1048598762512-42q2uvm9q3d8t0o6o553gqspg4a54p45.apps.googleusercontent.com';
           window.google.accounts.id.initialize({
-            client_id: clientId,
+            client_id: GOOGLE_CLIENT_ID,
             callback: handleGoogleCredentialResponse,
             auto_select: false,
             cancel_on_tap_outside: true
@@ -118,7 +119,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
       const timer = setTimeout(initGsi, 1000);
       return () => clearTimeout(timer);
     }
-  }, []);
+  }, [GOOGLE_CLIENT_ID]);
 
   const handleGoogleCredentialResponse = async (response: any) => {
     if (!response?.credential) {
@@ -172,9 +173,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
     if (window.google?.accounts?.id) {
       try {
-        const clientId = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || '1048598762512-42q2uvm9q3d8t0o6o553gqspg4a54p45.apps.googleusercontent.com';
         window.google.accounts.id.initialize({
-          client_id: clientId,
+          client_id: GOOGLE_CLIENT_ID,
           callback: handleGoogleCredentialResponse,
           auto_select: false
         });
