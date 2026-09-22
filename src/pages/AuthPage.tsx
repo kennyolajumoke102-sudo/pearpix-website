@@ -172,28 +172,70 @@ export const AuthPage: React.FC<AuthPageProps> = ({
     setSuccessMsg(null);
     setGoogleLoading(true);
 
+    // 1. Primary: Use Google OAuth2 Token Client (guarantees account chooser popup)
+    if (window.google?.accounts?.oauth2) {
+      try {
+        const client = window.google.accounts.oauth2.initTokenClient({
+          client_id: GOOGLE_CLIENT_ID,
+          scope: 'openid email profile',
+          prompt: 'select_account',
+          callback: async (tokenResponse: any) => {
+            if (tokenResponse.error) {
+              setGoogleLoading(false);
+              if (tokenResponse.error !== 'access_denied' && tokenResponse.error !== 'user_cancelled') {
+                setErrorMsg(`Google sign-in error: ${tokenResponse.error}`);
+              }
+              return;
+            }
+
+            try {
+              const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                headers: {
+                  Authorization: `Bearer ${tokenResponse.access_token}`
+                }
+              });
+              const profile = await res.json();
+              if (profile && profile.email) {
+                const name = profile.name || profile.given_name || profile.email.split('@')[0];
+                await executeGoogleAuth(name, profile.email, profile.sub, profile.picture);
+              } else {
+                setGoogleLoading(false);
+                setErrorMsg('Could not retrieve user profile from Google.');
+              }
+            } catch (err: any) {
+              setGoogleLoading(false);
+              setErrorMsg(err.message || 'Failed to fetch Google profile information.');
+            }
+          },
+          error_callback: (err: any) => {
+            setGoogleLoading(false);
+            console.error('OAuth error:', err);
+            setErrorMsg(err?.message || 'Google account selection could not be opened.');
+          }
+        });
+
+        client.requestAccessToken();
+        return;
+      } catch (err: any) {
+        console.warn('OAuth2 client init error, attempting fallback:', err);
+      }
+    }
+
+    // 2. Fallback: Use Google Identity Services OneTap
     if (window.google?.accounts?.id) {
       try {
         window.google.accounts.id.initialize({
           client_id: GOOGLE_CLIENT_ID,
           callback: handleGoogleCredentialResponse,
-          auto_select: false,
-          cancel_on_tap_outside: true
+          auto_select: false
         });
 
-        // Prompt Google Account Chooser
         window.google.accounts.id.prompt((notification: any) => {
-          if (notification.isNotDisplayed()) {
-            // Attempt to trigger the native rendered button if available
-            const nativeBtn = hiddenGsiBtnRef.current?.querySelector('div[role="button"]') as HTMLElement;
-            if (nativeBtn) {
-              nativeBtn.click();
-            } else {
-              setGoogleLoading(false);
-              setErrorMsg('Google Sign-In prompt could not be opened. Please ensure your domain is added to Authorized JavaScript Origins in Google Cloud.');
-            }
-          } else if (notification.isSkippedMoment() || notification.isDismissedMoment()) {
+          if (notification.isNotDisplayed() || notification.isSkippedMoment() || notification.isDismissedMoment()) {
             setGoogleLoading(false);
+            if (notification.isNotDisplayed()) {
+              setErrorMsg('Google Sign-In prompt could not be displayed. Please check Authorized JavaScript Origins in Google Cloud Console.');
+            }
           }
         });
         return;
