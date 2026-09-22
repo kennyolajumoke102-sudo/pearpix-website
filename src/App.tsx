@@ -376,12 +376,8 @@ export function App() {
     setUser(newUser);
     const sub = pearlGetSavedSubscription();
     setSubscription(sub);
-    // If not subscribed yet, take user to the subscription activation page
-    if (!sub.isSubscribed) {
-      navigateToPage('subscription');
-    } else {
-      handleGoBack();
-    }
+    // Return directly to the user's previous view on login
+    handleGoBack();
   };
 
   const handleLogout = () => {
@@ -459,7 +455,6 @@ export function App() {
       <AuthPage
         onBack={handleGoBack}
         onLoginSuccess={handleLoginSuccess}
-        onNavigateToSubscription={() => navigateToPage('subscription')}
         noticeMessage={authNotice}
       />
     );

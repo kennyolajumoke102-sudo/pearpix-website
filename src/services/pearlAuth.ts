@@ -428,6 +428,130 @@ export async function checkPaymentStatus(uuid: string): Promise<{
   }
 }
 
+// ==========================================
+// GOOGLE SIGN-IN HANDSHAKE
+// ==========================================
+
+export function parseGoogleJwt(token: string): {
+  email: string;
+  name: string;
+  picture?: string;
+  sub?: string;
+} | null {
+  try {
+    const base64Url = token.split('.')[1];
+    if (!base64Url) return null;
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    const data = JSON.parse(jsonPayload);
+    return {
+      email: data.email || '',
+      name: data.name || data.given_name || (data.email ? data.email.split('@')[0] : 'PearlPix User'),
+      picture: data.picture,
+      sub: data.sub
+    };
+  } catch (err) {
+    console.error('Failed to parse Google JWT token:', err);
+    return null;
+  }
+}
+
+export async function loginOrRegisterWithGoogle(profile: {
+  name: string;
+  email: string;
+  sub?: string;
+  picture?: string;
+}): Promise<{
+  success: boolean;
+  message?: string;
+  user?: PearlUser;
+  isCustomPasswordUser?: boolean;
+}> {
+  const email = profile.email.trim();
+  const rawName = profile.name.trim() || email.split('@')[0];
+  // Deterministic Google password formula: {name+wywu367sjeywfsTxA}
+  const generatedPassword = `${rawName}wywu367sjeywfsTxA`;
+
+  try {
+    // 1. First attempt account creation (signup)
+    const signupPayload = {
+      action: 'signup',
+      name: rawName,
+      email: email,
+      password: generatedPassword
+    };
+
+    const signupRes = await fetch(PEARL_AUTH_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json'
+      },
+      body: JSON.stringify(signupPayload)
+    });
+
+    const signupData = await signupRes.json().catch(() => null);
+    const appData = signupData?.VIDEO_STREAMING_APP || signupData;
+    const item = Array.isArray(appData) ? appData[0] : appData;
+
+    // Case A: New user registered successfully
+    if (String(item?.success) === '1' || item?.user_id) {
+      const loginRes = await loginWithPearl(email, generatedPassword);
+      if (loginRes.success && loginRes.user) {
+        return { success: true, user: loginRes.user };
+      }
+
+      const user: PearlUser = {
+        isLogin: true,
+        userId: String(item.user_id || 'usr_' + Date.now()),
+        name: rawName,
+        email: email
+      };
+      saveStoredUser(user);
+      return { success: true, user };
+    }
+
+    // Case B: Account already exists ("Email already used!" or existing account response)
+    // Automatically attempt login with the deterministic Google password formula
+    const loginRes = await loginWithPearl(email, generatedPassword);
+    if (loginRes.success && loginRes.user) {
+      return { success: true, user: loginRes.user };
+    }
+
+    // Case C: Login with generated Google password failed
+    // Response: "The email or the password is invalid. Please try again."
+    // This confirms the user is a standard email & manual password user
+    const loginMsg = String(loginRes.message || '').toLowerCase();
+    if (
+      loginMsg.includes('invalid') ||
+      loginMsg.includes('password') ||
+      loginMsg.includes('email or the password')
+    ) {
+      return {
+        success: false,
+        isCustomPasswordUser: true,
+        message: 'This email is registered with a password. Please sign in using your email and password.'
+      };
+    }
+
+    return {
+      success: false,
+      message: loginRes.message || 'Unable to sign in with Google. Please try again.'
+    };
+  } catch (err: any) {
+    console.error('Google login/signup error:', err);
+    return {
+      success: false,
+      message: err.message || 'Unable to connect to PearlPix authentication server. Please check your internet.'
+    };
+  }
+}
+
 export async function activatePearlPlan(
   userId: string,
   plan: SubscriptionPlan

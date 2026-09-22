@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   ArrowLeft,
   Mail, 
@@ -11,23 +11,56 @@ import {
   Loader2, 
   Sparkles,
   ArrowRight,
-  Film
+  Film,
+  X
 } from 'lucide-react';
-import { loginWithPearl, signupWithPearl, forgotPasswordWithPearl } from '../services/pearlAuth';
+import { 
+  loginWithPearl, 
+  signupWithPearl, 
+  forgotPasswordWithPearl,
+  loginOrRegisterWithGoogle,
+  parseGoogleJwt
+} from '../services/pearlAuth';
 import { PearlUser } from '../types';
 
 interface AuthPageProps {
   onBack: () => void;
   onLoginSuccess: (user: PearlUser) => void;
-  onNavigateToSubscription?: () => void;
   initialMode?: 'login' | 'signup' | 'reset';
   noticeMessage?: string;
 }
 
+declare global {
+  interface Window {
+    google?: any;
+  }
+}
+
+// Official Google 'G' Icon Component
+const GoogleGIcon = () => (
+  <svg className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" viewBox="0 0 24 24">
+    <path
+      fill="#4285F4"
+      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+    />
+    <path
+      fill="#34A853"
+      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+    />
+    <path
+      fill="#FBBC05"
+      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+    />
+    <path
+      fill="#EA4335"
+      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+    />
+  </svg>
+);
+
 export const AuthPage: React.FC<AuthPageProps> = ({
   onBack,
   onLoginSuccess,
-  onNavigateToSubscription,
   initialMode = 'login',
   noticeMessage
 }) => {
@@ -39,8 +72,138 @@ export const AuthPage: React.FC<AuthPageProps> = ({
   const [agreeTerms, setAgreeTerms] = useState(true);
 
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Fallback Google account chooser modal
+  const [showGoogleModal, setShowGoogleModal] = useState(false);
+  const [googleEmailInput, setGoogleEmailInput] = useState('');
+  const [googleNameInput, setGoogleNameInput] = useState('');
+
+  const googleBtnContainerRef = useRef<HTMLDivElement>(null);
+
+  // Initialize Google Identity Services (GSI) if available
+  useEffect(() => {
+    const initGsi = () => {
+      if (window.google?.accounts?.id) {
+        try {
+          const clientId = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || '1048598762512-42q2uvm9q3d8t0o6o553gqspg4a54p45.apps.googleusercontent.com';
+          window.google.accounts.id.initialize({
+            client_id: clientId,
+            callback: handleGoogleCredentialResponse,
+            auto_select: false,
+            cancel_on_tap_outside: true
+          });
+
+          if (googleBtnContainerRef.current) {
+            window.google.accounts.id.renderButton(googleBtnContainerRef.current, {
+              theme: 'filled_black',
+              size: 'large',
+              width: 320,
+              type: 'standard',
+              shape: 'rectangular',
+              text: 'continue_with'
+            });
+          }
+        } catch (e) {
+          console.warn('GSI init note:', e);
+        }
+      }
+    };
+
+    if (window.google?.accounts?.id) {
+      initGsi();
+    } else {
+      const timer = setTimeout(initGsi, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  const handleGoogleCredentialResponse = async (response: any) => {
+    if (!response?.credential) {
+      setErrorMsg('Could not receive Google credentials. Please try again.');
+      return;
+    }
+
+    const profile = parseGoogleJwt(response.credential);
+    if (!profile || !profile.email) {
+      setErrorMsg('Unable to retrieve your Google profile details.');
+      return;
+    }
+
+    await executeGoogleAuth(profile.name, profile.email, profile.sub, profile.picture);
+  };
+
+  const executeGoogleAuth = async (
+    gName: string, 
+    gEmail: string, 
+    sub?: string, 
+    picture?: string
+  ) => {
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    setGoogleLoading(true);
+
+    const res = await loginOrRegisterWithGoogle({
+      name: gName,
+      email: gEmail,
+      sub,
+      picture
+    });
+
+    setGoogleLoading(false);
+    setShowGoogleModal(false);
+
+    if (res.success && res.user) {
+      setSuccessMsg(`Welcome back, ${res.user.name}!`);
+      setTimeout(() => {
+        onLoginSuccess(res.user!);
+        onBack();
+      }, 500);
+    } else {
+      setErrorMsg(res.message || 'Google sign-in could not be completed. Please try again.');
+    }
+  };
+
+  const handleContinueWithGoogleClick = () => {
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    if (window.google?.accounts?.id) {
+      try {
+        const clientId = (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || '1048598762512-42q2uvm9q3d8t0o6o553gqspg4a54p45.apps.googleusercontent.com';
+        window.google.accounts.id.initialize({
+          client_id: clientId,
+          callback: handleGoogleCredentialResponse,
+          auto_select: false
+        });
+
+        window.google.accounts.id.prompt((notification: any) => {
+          // If One Tap is blocked or not displayed (e.g. cross-origin iframe), open the fallback modal
+          if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+            setShowGoogleModal(true);
+          }
+        });
+        return;
+      } catch (e) {
+        console.warn('GSI prompt fallback:', e);
+      }
+    }
+
+    // Fallback if GSI script is blocked or in sandbox environment
+    setShowGoogleModal(true);
+  };
+
+  const handleGoogleModalSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!googleEmailInput || !googleEmailInput.includes('@')) {
+      setErrorMsg('Please enter a valid Google email address.');
+      return;
+    }
+    const finalName = googleNameInput.trim() || googleEmailInput.split('@')[0];
+    await executeGoogleAuth(finalName, googleEmailInput.trim());
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,12 +246,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         setSuccessMsg('Account created successfully! Welcome to PearlPix.');
         setTimeout(() => {
           onLoginSuccess(res.user!);
-          if (onNavigateToSubscription) {
-            onNavigateToSubscription();
-          } else {
-            onBack();
-          }
-        }, 600);
+          onBack();
+        }, 500);
       } else {
         setErrorMsg(res.message || 'Signup failed. Please try again.');
       }
@@ -102,12 +261,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         setSuccessMsg(`Welcome back, ${res.user.name}!`);
         setTimeout(() => {
           onLoginSuccess(res.user!);
-          if (onNavigateToSubscription) {
-            onNavigateToSubscription();
-          } else {
-            onBack();
-          }
-        }, 600);
+          onBack();
+        }, 500);
       } else {
         setErrorMsg(res.message || 'Login failed. Please check your credentials.');
       }
@@ -141,7 +296,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
         <div className="w-full max-w-md bg-[#0D0D0D] border border-[#262626] rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
           {/* Subtle Ambient Glow */}
           <div className="absolute -top-20 -right-20 w-48 h-48 bg-[#E50914]/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-20 -left-20 w-48 h-48 bg-[#00E5FF]/5 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-20 -left-20 w-48 h-48 bg-[#4285F4]/5 rounded-full blur-3xl pointer-events-none" />
 
           {/* Logo & Headline */}
           <div className="text-center mb-6 relative">
@@ -195,17 +350,52 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
           {/* Error Message */}
           {errorMsg && (
-            <div className="mb-4 p-3 rounded-xl bg-red-950/40 border border-red-800/40 text-red-300 text-xs flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 flex-shrink-0 text-red-400" />
-              <span>{errorMsg}</span>
+            <div className="mb-4 p-3.5 rounded-xl bg-red-950/50 border border-red-800/50 text-red-200 text-xs flex items-start gap-2.5 animate-in fade-in">
+              <AlertCircle className="w-4 h-4 flex-shrink-0 text-red-400 mt-0.5" />
+              <span className="leading-relaxed">{errorMsg}</span>
             </div>
           )}
 
           {/* Success Message */}
           {successMsg && (
-            <div className="mb-4 p-3 rounded-xl bg-emerald-950/40 border border-emerald-800/40 text-emerald-300 text-xs flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-400" />
-              <span>{successMsg}</span>
+            <div className="mb-4 p-3.5 rounded-xl bg-emerald-950/50 border border-emerald-800/50 text-emerald-200 text-xs flex items-start gap-2.5 animate-in fade-in">
+              <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-400 mt-0.5" />
+              <span className="leading-relaxed">{successMsg}</span>
+            </div>
+          )}
+
+          {/* 1. GOOGLE SIGN-IN BUTTON */}
+          {mode !== 'reset' && (
+            <div className="mb-5 space-y-3">
+              <button
+                type="button"
+                onClick={handleContinueWithGoogleClick}
+                disabled={googleLoading || loading}
+                className="w-full py-3 px-4 rounded-xl bg-white hover:bg-gray-100 text-gray-900 font-bold text-xs sm:text-sm flex items-center justify-center gap-3 transition-all shadow-md active:scale-[0.98] cursor-pointer disabled:opacity-60 select-none border border-white"
+              >
+                {googleLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-gray-800" />
+                    <span>Connecting to Google...</span>
+                  </>
+                ) : (
+                  <>
+                    <GoogleGIcon />
+                    <span>Continue with Google</span>
+                  </>
+                )}
+              </button>
+
+              {/* Hidden container if GSI renders button */}
+              <div ref={googleBtnContainerRef} className="hidden" />
+
+              {/* Divider */}
+              <div className="relative flex items-center justify-center pt-2">
+                <div className="border-t border-[#262626] w-full" />
+                <span className="bg-[#0D0D0D] px-3 text-[10px] font-bold uppercase tracking-wider text-[#64748B] absolute">
+                  or sign in with email
+                </span>
+              </div>
             </div>
           )}
 
@@ -301,7 +491,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || googleLoading}
               className="w-full py-3 rounded-xl bg-[#E50914] hover:bg-[#B80710] text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-[#E50914]/25 transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 mt-2"
             >
               {loading ? (
@@ -312,7 +502,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({
               ) : (
                 <>
                   <span>
-                    {mode === 'login' && 'Sign In'}
+                    {mode === 'login' && 'Sign In with Email'}
                     {mode === 'signup' && 'Create Account'}
                     {mode === 'reset' && 'Send Reset Link'}
                   </span>
@@ -345,6 +535,77 @@ export const AuthPage: React.FC<AuthPageProps> = ({
           </div>
         </div>
       </main>
+
+      {/* Fallback Google Account Selection Modal */}
+      {showGoogleModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-sm bg-[#121212] border border-[#262626] rounded-2xl p-6 shadow-2xl relative animate-in zoom-in-95 duration-200">
+            <button
+              onClick={() => setShowGoogleModal(false)}
+              className="absolute top-4 right-4 text-[#94A3B8] hover:text-white p-1 rounded-lg"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow">
+                <GoogleGIcon />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">Google Account Sign-In</h3>
+                <p className="text-[11px] text-[#94A3B8]">Sign in with your Google account</p>
+              </div>
+            </div>
+
+            <form onSubmit={handleGoogleModalSubmit} className="space-y-3.5">
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] mb-1">
+                  Google Email
+                </label>
+                <input
+                  type="email"
+                  value={googleEmailInput}
+                  onChange={(e) => setGoogleEmailInput(e.target.value)}
+                  placeholder="your.email@gmail.com"
+                  required
+                  autoFocus
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#1A1A1A] border border-[#333] text-white text-xs placeholder:text-gray-500 focus:outline-none focus:border-[#4285F4]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#94A3B8] mb-1">
+                  Display Name (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={googleNameInput}
+                  onChange={(e) => setGoogleNameInput(e.target.value)}
+                  placeholder="Your Name"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#1A1A1A] border border-[#333] text-white text-xs placeholder:text-gray-500 focus:outline-none focus:border-[#4285F4]"
+                />
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={googleLoading}
+                  className="w-full py-2.5 rounded-xl bg-[#4285F4] hover:bg-[#3367D6] text-white font-bold text-xs uppercase tracking-wider shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {googleLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Signing In...</span>
+                    </>
+                  ) : (
+                    <span>Continue with this account</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
