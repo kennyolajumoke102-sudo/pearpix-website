@@ -23,9 +23,7 @@ import {
   Film,
   Loader2,
   Smartphone,
-  Download,
-  Crown,
-  Lock
+  Download
 } from 'lucide-react';
 
 interface PlayerModalProps {
@@ -77,9 +75,6 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
   const [resolvedStream, setResolvedStream] = useState<ResolvedStreamResult | null>(null);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const [showSettings, setShowSettings] = useState<boolean>(false);
-
-  // 3-second free preview limit lock state
-  const [previewLimitReached, setPreviewLimitReached] = useState<boolean>(false);
 
   const controlsTimeoutRef = useRef<any>(null);
 
@@ -261,10 +256,22 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
     }
   };
 
+  // If user is not subscribed, immediately close and route to subscription page
+  useEffect(() => {
+    if (!isSubscribed) {
+      onClose();
+      if (!user) {
+        onOpenAuth();
+      } else {
+        onOpenSubscription();
+      }
+    }
+  }, [isSubscribed, user, onClose, onOpenAuth, onOpenSubscription]);
+
   const togglePlay = () => {
     if (!videoRef.current) return;
-    if (!isSubscribed && (previewLimitReached || videoRef.current.currentTime >= 3.0)) {
-      setPreviewLimitReached(true);
+    if (!isSubscribed) {
+      onClose();
       if (!user) onOpenAuth();
       else onOpenSubscription();
       return;
@@ -283,23 +290,6 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
     setCurrentTime(time);
     setDuration(videoRef.current.duration || 0);
 
-    // SUBSCRIPTION CHECKER:
-    // All movies are subscription; free users watch for 3 seconds before subscription dialogue triggers
-    if (!isSubscribed) {
-      if (time >= 3.0) {
-        videoRef.current.pause();
-        videoRef.current.currentTime = 3.0;
-        setIsPlaying(false);
-        setPreviewLimitReached(true);
-        if (!user) {
-          onOpenAuth();
-        } else {
-          onOpenSubscription();
-        }
-        return;
-      }
-    }
-
     // Periodic progress save
     if (Math.floor(time) % 10 === 0 && videoRef.current.duration) {
       onSaveProgress(
@@ -313,18 +303,6 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const time = parseFloat(e.target.value);
-    if (!isSubscribed && time > 3.0) {
-      setCurrentTime(3.0);
-      if (videoRef.current) {
-        videoRef.current.currentTime = 3.0;
-        videoRef.current.pause();
-      }
-      setIsPlaying(false);
-      setPreviewLimitReached(true);
-      if (!user) onOpenAuth();
-      else onOpenSubscription();
-      return;
-    }
     setCurrentTime(time);
     if (videoRef.current) {
       videoRef.current.currentTime = time;
@@ -334,15 +312,6 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
   const skipTime = (seconds: number) => {
     if (!videoRef.current) return;
     const target = videoRef.current.currentTime + seconds;
-    if (!isSubscribed && target > 3.0) {
-      videoRef.current.currentTime = 3.0;
-      videoRef.current.pause();
-      setIsPlaying(false);
-      setPreviewLimitReached(true);
-      if (!user) onOpenAuth();
-      else onOpenSubscription();
-      return;
-    }
     videoRef.current.currentTime = Math.max(0, Math.min(videoRef.current.duration || 0, target));
   };
 
@@ -493,59 +462,6 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
         playsInline
         autoPlay
       />
-
-      {/* 3-Second Free Preview Limit Paywall Overlay */}
-      {!isSubscribed && previewLimitReached && (
-        <div className="absolute inset-0 z-40 bg-black/95 backdrop-blur-lg flex flex-col items-center justify-center p-6 text-center animate-fadeIn">
-          <div className="w-20 h-20 rounded-3xl bg-[#E50914]/20 border-2 border-[#E50914] text-[#E50914] flex items-center justify-center mb-4 shadow-2xl shadow-[#E50914]/40 animate-pulse">
-            <Crown className="w-10 h-10 fill-current" />
-          </div>
-
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#E50914]/20 border border-[#E50914]/40 text-[#E50914] font-black text-xs uppercase tracking-wider mb-2">
-            <Lock className="w-3.5 h-3.5" />
-            <span>3-Second Free Preview Finished</span>
-          </div>
-
-          <h3 className="text-2xl sm:text-3xl font-black text-white max-w-lg tracking-tight">
-            Unlock Full Movie with VIP Pass
-          </h3>
-
-          <p className="text-xs sm:text-sm text-[#94A3B8] max-w-md mt-2 mb-6 leading-relaxed">
-            You previewed 3 seconds of <strong className="text-white">{activeMovie.title}</strong> translated by <strong className="text-[#E50914]">{activeMovie.vj}</strong>. All movies require an active PearlPix VIP subscription. Activate your pass from only 7,000 UGX to stream uninterrupted.
-          </p>
-
-          <div className="flex flex-col sm:flex-row items-center gap-3 w-full max-w-md">
-            {!user ? (
-              <button
-                onClick={onOpenAuth}
-                className="w-full sm:flex-1 py-3.5 rounded-2xl bg-[#E50914] hover:bg-[#B80710] text-white font-black text-sm uppercase tracking-wider shadow-xl shadow-[#E50914]/30 transition-all cursor-pointer flex items-center justify-center gap-2"
-              >
-                <span>Sign In / Create Account</span>
-              </button>
-            ) : (
-              <button
-                onClick={onOpenSubscription}
-                className="w-full sm:flex-1 py-3.5 rounded-2xl bg-[#E50914] hover:bg-[#B80710] text-white font-black text-sm uppercase tracking-wider shadow-xl shadow-[#E50914]/30 flex items-center justify-center gap-2 transition-all cursor-pointer"
-              >
-                <Crown className="w-4 h-4 fill-current" />
-                <span>Activate VIP Pass (7,000 UGX)</span>
-              </button>
-            )}
-
-            <button
-              onClick={() => {
-                if (videoRef.current) {
-                  onSaveProgress(activeMovie, videoRef.current.currentTime, videoRef.current.duration || 0, currentEpisode?.title);
-                }
-                onClose();
-              }}
-              className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-[#1A1A1A] hover:bg-[#252525] border border-[#333] text-white font-bold text-sm transition-colors cursor-pointer"
-            >
-              Exit Player
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Video Buffering / Loading Indicator */}
       {(isVideoLoading || isResolvingStream) && (

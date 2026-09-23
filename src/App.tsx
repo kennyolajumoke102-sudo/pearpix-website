@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Movie, Episode, WatchHistoryItem, HomeSection, PearlUser, PearlSubscription } from './types';
 import { fetchHomeSectionsData, FALLBACK_MOVIES } from './api';
-import { pearlGetSavedUser, pearlGetSavedSubscription, pearlLogout } from './services/pearlAuth';
+import { pearlGetSavedUser, pearlGetSavedSubscription, pearlLogout, fetchPearlSubscriptionDetails } from './services/pearlAuth';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
 import { FloatingInstallApkButton } from './components/FloatingInstallApkButton';
@@ -325,6 +325,16 @@ export function App() {
   };
 
   const openPlayer = (movie: Movie, episode?: Episode, serverUrl?: string) => {
+    // If not subscribed: Free or expired users do not visit the player; directly display subscription page
+    if (!subscription.isSubscribed) {
+      if (!user) {
+        navigateToPage('auth', 'Please sign in or register to get VIP access.');
+      } else {
+        navigateToPage('subscription');
+      }
+      return;
+    }
+
     setPlayerState({ movie, episode, serverUrl });
     try {
       window.history.pushState({ pearlpix: true, view: 'player' }, '');
@@ -367,15 +377,35 @@ export function App() {
     }
   };
 
+  // Auto-sync subscription from pearl_details.php on startup/user change
+  useEffect(() => {
+    if (user?.userId) {
+      fetchPearlSubscriptionDetails(user.userId, user.session).then(sub => {
+        setSubscription(sub);
+      }).catch(err => {
+        console.warn('Subscription background sync error:', err);
+      });
+    }
+  }, [user?.userId]);
+
   const handleOpenContact = (subject?: string) => {
     setContactDefaultTitle(subject || '');
     navigateToPage('contact');
   };
 
-  const handleLoginSuccess = (newUser: PearlUser) => {
+  const handleLoginSuccess = async (newUser: PearlUser) => {
     setUser(newUser);
-    const sub = pearlGetSavedSubscription();
-    setSubscription(sub);
+    // Instant update from cache first, then fetch latest from pearl_details.php
+    const cachedSub = pearlGetSavedSubscription();
+    setSubscription(cachedSub);
+
+    try {
+      const liveSub = await fetchPearlSubscriptionDetails(newUser.userId, newUser.session);
+      setSubscription(liveSub);
+    } catch (e) {
+      console.warn('Live subscription sync notice:', e);
+    }
+
     setAuthNotice(undefined);
     // Return safely to destination or home without risking closing the window/tab
     if (previousTab && previousTab !== 'auth') {

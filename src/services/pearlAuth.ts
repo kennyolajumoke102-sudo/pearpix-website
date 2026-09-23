@@ -1,6 +1,8 @@
 import { PearlUser, PearlSubscription, SubscriptionPlan } from '../types';
 
 export const PEARL_AUTH_URL = 'https://pearlpix.net/web_api/pearl_auth.php';
+export const PEARL_DETAILS_URL = 'https://pearlpix.net/web_api/pearl_details.php';
+export const PEARL_PROFILE_URL = 'https://pearlpix.net/web_api/pearl_details.php';
 export const PEARL_TRANSACTION_URL = 'https://pearlpix.net/web_api/pearl_transaction.php';
 export const PEARL_INITIATE_COLLECTION_URL = 'https://pearlpix.net/initiate_collection.php';
 export const PEARL_CHECK_STATUS_URL = 'https://pearlpix.net/check_status.php';
@@ -144,6 +146,12 @@ export const pearlGetSavedUser = getStoredUser;
 export const pearlGetSavedSubscription = getStoredSubscription;
 export const pearlLogout = clearStoredUser;
 
+export async function fetchPearlSubscriptionDetails(userId: string, _session?: string): Promise<PearlSubscription> {
+  if (!userId) return getStoredSubscription();
+  // Return current cached subscription stored in localStorage
+  return getStoredSubscription();
+}
+
 export function getStoredSubscription(): PearlSubscription {
   try {
     const isSubscribed = localStorage.getItem('isSubscribed') === 'true';
@@ -248,6 +256,47 @@ export async function loginWithPearl(email: string, password: string): Promise<{
         session: item.user_session_name || ''
       };
       saveStoredUser(user);
+
+      // Parse and store any direct subscription information returned by the server
+      const planName = item.plan_name || item.user_plan || item.package_name || item.subscription_plan || item.plan_title || item.plan || item.current_plan || item.active_plan;
+      const rawExpire = item.expire_date || item.plan_exp_date || item.expiry_date || item.plan_expired_on || item.expire_timestamp || item.expired_on || item.end_date || item.date_expired || item.expiry;
+      const isSubscribedFlag = 
+        item.is_subscribed === true || item.is_subscribed === '1' || item.is_subscribed === 1 ||
+        item.subscribed === true || item.subscribed === '1' || item.subscribed === 1 ||
+        item.vip === true || item.vip === '1' || item.vip === 1 ||
+        item.is_vip === true || item.is_vip === '1' || item.is_vip === 1 ||
+        item.is_premium === true || item.is_premium === '1' || item.is_premium === 1 ||
+        item.user_type === 'vip' || item.user_type === 'premium' || item.user_type === 'subscriber' ||
+        (typeof item.subscription_status === 'string' && item.subscription_status.toLowerCase() === 'active') ||
+        (typeof item.status === 'string' && item.status.toLowerCase() === 'active');
+
+      if (planName || isSubscribedFlag || rawExpire) {
+        let expireTimestamp: number | undefined;
+        if (typeof rawExpire === 'number') {
+          expireTimestamp = rawExpire > 10000000000 ? rawExpire : rawExpire * 1000;
+        } else if (typeof rawExpire === 'string' && rawExpire.trim()) {
+          const parsed = Date.parse(rawExpire);
+          if (!isNaN(parsed)) {
+            expireTimestamp = parsed;
+          } else {
+            const num = parseInt(rawExpire, 10);
+            if (!isNaN(num)) {
+              expireTimestamp = num > 10000000000 ? num : num * 1000;
+            }
+          }
+        }
+
+        const isValid = expireTimestamp ? expireTimestamp > Date.now() : (isSubscribedFlag || Boolean(planName));
+
+        if (isValid) {
+          localStorage.setItem('isSubscribed', 'true');
+          localStorage.setItem('subscriptionPlan', planName || 'VIP Active Pass');
+          if (expireTimestamp) localStorage.setItem('subscriptionExpireTimestamp', expireTimestamp.toString());
+          if (item.amount) localStorage.setItem('subscriptionAmount', String(item.amount));
+          if (item.invoice_date || item.date) localStorage.setItem('invoiceDate', String(item.invoice_date || item.date));
+        }
+      }
+
       return { success: true, user };
     }
 

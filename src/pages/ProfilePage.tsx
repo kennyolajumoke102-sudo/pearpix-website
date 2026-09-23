@@ -203,6 +203,21 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                     </div>
                   )}
 
+                  {subscription.invoiceDate && (
+                    <div className="pt-2 border-t border-[#262626] grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <span className="text-[#64748B] block text-[10px] uppercase">Last Invoice Date</span>
+                        <span className="text-white font-medium">{subscription.invoiceDate}</span>
+                      </div>
+                      {subscription.amount && (
+                        <div>
+                          <span className="text-[#64748B] block text-[10px] uppercase">Amount Paid</span>
+                          <span className="text-white font-medium">{subscription.amount}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <p className="text-[11px] text-[#64748B]">
                     Enjoy ad-free streaming, 1080p high definition, full VJ translations, and unlimited catalog access.
                   </p>
@@ -216,7 +231,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                     </div>
                     <h3 className="text-base font-black text-white">Unlock Unlimited PearlPix VIP</h3>
                     <p className="text-xs text-[#94A3B8] mt-1">
-                      Free users are limited to 3-second video previews. Upgrade to a Weekly, Monthly, or Annual VIP Pass to watch without interruptions.
+                      All movies require an active VIP plan. Upgrade to a Weekly, Monthly, or Annual VIP Pass to start watching instantly.
                     </p>
                   </div>
 
